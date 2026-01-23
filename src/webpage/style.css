@@ -4050,6 +4050,38 @@ fieldset input[type="radio"] {
 	}
 }
 
+.contextmenu {
+	position: fixed;
+	background: var(--secondary-bg);
+	border-radius: 8px;
+	box-shadow: 0 0 8px var(--shadow);
+	z-index: 103;
+	min-width: 200px;
+	overflow: hidden;
+}
+
+.contextbutton {
+	display: block;
+	width: 100%;
+	padding: 8px 16px;
+	background: transparent;
+	color: var(--primary-text);
+	border: none;
+	text-align: left;
+	cursor: pointer;
+	transition: background 0.1s;
+}
+
+.contextbutton:hover {
+	background: var(--channel-hover);
+}
+
+.contextbutton:disabled {
+	color: var(--primary-text-soft);
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+
 @media screen and (max-width: 600px) {
 	.searching {
 		position: absolute;

@@ -1577,7 +1577,6 @@ class Guild extends SnowFlake {
 			divy.appendChild(img);
 			if (guild instanceof Guild && autoLink) {
 				img.onclick = onclick;
-				Guild.contextmenu.bindContextmenu(img, guild, undefined);
 				hover.addEvent(img);
 			}
 		} else {
@@ -1597,9 +1596,11 @@ class Guild extends SnowFlake {
 			divy.appendChild(div);
 			if (guild instanceof Guild) {
 				div.onclick = onclick;
-				Guild.contextmenu.bindContextmenu(div, guild, undefined);
 				hover.addEvent(div);
 			}
+		}
+		if (guild instanceof Guild && autoLink) {
+			Guild.contextmenu.bindContextmenu(divy, guild, undefined);
 		}
 		return divy;
 	}
