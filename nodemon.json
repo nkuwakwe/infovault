@@ -1,0 +1,7 @@
+{
+  "watch": ["src", "public", "translations"],
+  "ext": "js,mjs,cjs,json,html,ts,css",
+  "delay": 1000,
+  "signal": "SIGTERM",
+  "exec": "npm run build && npm start"
+}

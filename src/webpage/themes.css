@@ -16,29 +16,29 @@
 
 /* Themes. See themes.txt */
 .Dark-theme {
-	color-scheme: dark;
-	--primary-button-bg: color-mix(in srgb, #777777 10%, var(--accent-color));
-	--primary-bg: #303339;
-	--primary-hover: #272b31;
-	--primary-text: #dfdfdf;
-	--primary-text-soft: #adb8b9;
-	--secondary-bg: #16191b;
-	--secondary-hover: #252b2c;
-	--servers-bg: #191c1d;
-	--channels-bg: #2a2d33;
-	--channel-selected: #3c4046;
-	--typebox-bg: #3a3e45;
-	--button-bg: #4e5457;
-	--button-hover: #6b7174;
+	color-scheme: gold;
+	--primary-button-bg: #b8860b;
+	--primary-bg: #2a2417;
+	--primary-hover: #3a3226;
+	--primary-text: #e8dcc8;
+	--primary-text-soft: #b8a594;
+	--secondary-bg: #1a1511;
+	--secondary-hover: #2a2417;
+	--servers-bg: #3d3426;
+	--channels-bg: #3d3426;
+	--channel-selected: #bf753069;
+	--typebox-bg: #2a2417;
+	--button-bg: #8b6f47;
+	--button-hover: #a0845a;
 	--spoiler-bg: #000000;
-	--link: #5ca9ed;
-	--primary-text-prominent: #efefef;
-	--dock-bg: #1b1e20;
-	--card-bg: #000000;
+	--link: #d4af37;
+	--primary-text-prominent: #f5e6d3;
+	--dock-bg: #1a1511;
+	--card-bg: #1a1511;
 }
 /*TODO This is a copy of the dark theme, might want to look into other solutions*/
 .no-theme {
-	color-scheme: dark;
+	color-scheme: gold;
 	--primary-button-bg: color-mix(in srgb, #777777 10%, var(--accent-color));
 	--primary-bg: #303339;
 	--primary-hover: #272b31;
@@ -48,7 +48,7 @@
 	--secondary-hover: #252b2c;
 	--servers-bg: #191c1d;
 	--channels-bg: #2a2d33;
-	--channel-selected: #3c4046;
+	--channel-selected: #bf753069;
 	--typebox-bg: #3a3e45;
 	--button-bg: #4e5457;
 	--button-hover: #6b7174;
@@ -116,6 +116,28 @@
 	--secondary-text-soft: #211f2e;
 	--blank-bg: #494985;
 	--spoiler-text: #e4e6ed;
+}
+
+.Gold-theme {
+	color-scheme: gold;
+	--primary-button-bg: #b8860b;
+	--primary-bg: #2a2417;
+	--primary-hover: #3a3226;
+	--primary-text: #e8dcc8;
+	--primary-text-soft: #b8a594;
+	--secondary-bg: #1a1511;
+	--secondary-hover: #2a2417;
+	--servers-bg: #3d3426;
+	--channels-bg: #3d3426;
+	--channel-selected: #5a4a37;
+	--typebox-bg: #2a2417;
+	--button-bg: #8b6f47;
+	--button-hover: #a0845a;
+	--spoiler-bg: #000000;
+	--link: #d4af37;
+	--primary-text-prominent: #f5e6d3;
+	--dock-bg: #1a1511;
+	--card-bg: #1a1511;
 }
 
 .Dark-Accent-theme {

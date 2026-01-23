@@ -6,8 +6,8 @@
 			name="viewport"
 			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
 		/>
-		<title>Fermi</title>
-		<meta content="Fermi" property="og:title" />
+		<title>Infovault</title>
+		<meta content="Infovault" property="og:title" />
 		<meta content="Join a community of people and start chatting!" property="og:description" />
 		<meta content="/logo.webp" property="og:image" />
 		<meta content="#4b458c" name="theme-color" />
@@ -15,28 +15,163 @@
 		<link href="/themes.css" rel="stylesheet" id="lightcss" />
 		<link rel="icon" type="image/x-icon" href="/favicon.ico" id="favicon" />
 		<style>
-			body.no-theme,
-			#loading {
-				background: #16191b;
-				display: flex;
-				justify-content: center;
-				align-items: center;
-			}
-			@media (prefers-color-scheme: light) {
-				body.no-theme,
-				#loading {
-					background: #9397bd;
-				}
-			}
-		</style>
-		<link rel="manifest" href="/manifest.json" />
+    body.no-theme,
+    #loading {
+        background: #16191b;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    @media (prefers-color-scheme: light) {
+        body.no-theme,
+        #loading {
+            background: #9397bd;
+        }
+    }
+
+    /* ── Base variables matching Figma export feel ── */
+    :root {
+        --bg-main: #000000;
+        --bg-sidebar: #0f0f0f;
+        --accent: #ffaa00;
+        --accent-dim: #c07631;
+        --text: #ffffff;
+        --text-dim: #c1c4d5;
+        --text-muted: #a0a0a0;
+        --selected-bg: #000000; /* 41% opacity */
+        --category: #ffffff;
+
+        /* Chat message colors from Figma export */
+        --msg-timestamp: #c1c4d5;
+        --msg-username-cheryl: #4e84b2;
+        --msg-username-amy: #a87687;
+        --msg-username-teehee: #a95b7c;
+        --msg-text: #c1c4d5;
+        --msg-mention: #aaaaac;
+        --role-gaza: #937955;
+        --role-gaza-text: #a8a9af;
+        --role-other: #3c3e87;
+        --role-other-text: #a0a4d4;
+
+        /* Gradient now lives here and spans full width */
+        --gradient-full: linear-gradient(
+      270deg,
+      rgba(246, 142, 16, 0) 0%,
+      rgba(255, 166, 0, 0.1) 0%,
+      rgba(255, 166, 0, 0.2) 100%
+    );
+    }
+
+    body {
+        background: var(--bg-main);
+        color: var(--text);
+        font-family: "Inter", "Poppins", Helvetica, sans-serif;
+    }
+
+    #page {
+        background: var(--gradient-full), var(--bg-main);
+        min-height: 100vh;
+    }
+
+    /* Sidebars now transparent → show #page gradient underneath */
+    #servers {
+        background: transparent;
+        width: 72px;
+        min-width: 72px;
+        padding: 12px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+        border-right: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .channelflex {
+        background: transparent;
+        width: 240px;
+        min-width: 240px;
+        padding: 0 8px;
+        overflow-y: auto;
+    }
+
+    /* Make chat area feel more like the exported mobile chat */
+    #chatArea,
+    #scrollWrap,
+    .channelw {
+        background: transparent;
+    }
+
+    /* Very Discord-mobile-like message row styling */
+    .msg-row {
+        position: relative;
+        min-height: 48px;
+        padding: 2px 12px 2px 56px;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+    }
+
+    .msg-row .timestamp {
+        position: absolute;
+        left: 12px;
+        top: 4px;
+        font-size: 10px;
+        color: var(--msg-timestamp);
+        pointer-events: none;
+    }
+
+    .msg-row .username {
+        font-weight: 600;
+        font-size: 12.5px;
+        margin-right: 8px;
+    }
+
+    .msg-row .username.cheryl   { color: var(--msg-username-cheryl); }
+    .msg-row .username.amy      { color: var(--msg-username-amy); }
+    .msg-row .username.teehee   { color: var(--msg-username-teehee); }
+
+    .msg-row .content {
+        color: var(--msg-text);
+        font-size: 12.5px;
+        line-height: 1.4;
+    }
+
+    /* Role pills – very close to Figma export */
+    .role-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 9.5px;
+        font-weight: 700;
+        margin: 0 4px 0 2px;
+        vertical-align: middle;
+    }
+
+    .role-gaza {
+        background: var(--role-gaza);
+        color: var(--role-gaza-text);
+    }
+
+    .role-other {
+        background: var(--role-other);
+        color: var(--role-other-text);
+    }
+
+    /* Mention / reply indicator style */
+    .mention {
+        color: #aaaaac;
+        font-weight: 600;
+    }
+</style>
 	</head>
 
 	<body class="no-theme">
 		<div id="loading" class="loading">
 			<div class="centeritem">
 				<img src="/logo.svg" style="width: 3in; height: 3in" />
-				<h1 id="loadingText" i18n="htmlPages.loadingText">Fermi is loading</h1>
+				<h1 id="loadingText" i18n="htmlPages.loadingText">Infovault is loading</h1>
 				<h2 id="load-desc" i18n="htmlPages.loaddesc">This shouldn't take long</h2>
 				<h1 id="switchaccounts" i18n="htmlPages.switchaccounts">Switch Accounts</h1>
 			</div>
@@ -47,7 +182,9 @@
 				<div class="flexltr header" id="servertd">
 					<h2 id="serverName" class="ellipsis">Server Name</h2>
 				</div>
-				<div id="channels"></div>
+				<div id="channels">
+					<!-- Example structure your JS most likely generates -->
+				</div>
 				<div class="flexttb">
 					<div class="flexltr" id="VoiceBox">
 						<div class="flexttb">
@@ -143,7 +280,4 @@
 		</div>
 	</body>
 	<script src="/index.js" type="module"></script>
-	<!-- <script src="/service.js" --->
-	<!-- <script src="/audio/worklet/worklet.js" --->
-	<!-- <script src="/utils/dirrWorker.js" --->
 </html>

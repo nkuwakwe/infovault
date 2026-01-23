@@ -905,12 +905,25 @@ class Channel extends SnowFlake {
 			button.classList.add("channelbutton");
 
 			div.append(button);
+
+			// Hash symbol
+			const hashSpan = document.createElement("span");
+			hashSpan.classList.add("for_the_hash");
+			hashSpan.textContent = "#";
+			button.appendChild(hashSpan);
+
+			const decoration = this.renderIcon();
+			button.appendChild(decoration);
+
+			// Pipe separator
+			const pipeDiv = document.createElement("div");
+			pipeDiv.classList.add("for_the_pipe");
+			button.appendChild(pipeDiv);
+
 			const myhtml = document.createElement("span");
 			myhtml.classList.add("ellipsis");
 			myhtml.textContent = this.name;
 			this.nameSpan = new WeakRef(myhtml);
-			const decoration = this.renderIcon();
-			button.appendChild(decoration);
 			button.appendChild(myhtml);
 			button.onclick = (_) => {
 				this.getHTML();

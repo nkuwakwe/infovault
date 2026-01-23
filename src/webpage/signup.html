@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Log In - Infovault</title>
+  <title>Sign Up - Infovault</title>
   <meta content="Fermi" property="og:title" />
   <meta content="Join a community of people and start chatting!" property="og:description" />
   <meta content="/logo.webp" property="og:image" />
   <meta content="#dbb056" name="theme-color" />
 
+  <!-- Using Poppins from Google Fonts to match Figma export -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
@@ -46,11 +47,11 @@
       padding: 20px;
     }
 
-    .login-card {
+    .signup-card {
       width: 358px;
       max-width: 100%;
       height: auto;
-      min-height: 580px;
+      min-height: 650px;
       background: linear-gradient(270deg, rgba(246,142,16,0) 0%, rgba(255,166,0,0.14) 0%, rgba(255,166,0,0.27) 100%),
                   linear-gradient(0deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 100%);
       border: 1px solid #dbb056;
@@ -163,6 +164,23 @@
       cursor: not-allowed;
     }
 
+    .login-link {
+      margin-top: 20px;
+      font-family: "Poppins", sans-serif;
+      font-size: 14px;
+      color: #dbb056;
+    }
+
+    .login-link a {
+      color: #ffa600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .login-link a:hover {
+      text-decoration: underline;
+    }
+
     .error-message {
       color: #ff6b6b;
       font-family: "Poppins", sans-serif;
@@ -175,36 +193,62 @@
     .error-message.show {
       display: block;
     }
+
+    .success-message {
+      color: #51cf66;
+      font-family: "Poppins", sans-serif;
+      font-size: 14px;
+      margin-top: 10px;
+      text-align: center;
+      display: none;
+    }
+
+    .success-message.show {
+      display: block;
+    }
   </style>
 </head>
 <body>
 
   <div class="frame">
-    <div class="login-card">
+    <div class="signup-card">
 
+      <!-- Logo -->
       <div class="logo-area">
         <img src="/logo.webp" alt="Infovault logo">
       </div>
 
-      <div class="welcome-title">Welcome Back</div>
-      <div class="subtitle">Do you have your key?</div>
+      <div class="welcome-title">This is easily your best move year</div>
+      <div class="subtitle">Create your key</div>
 
       <div style="width:100%; display:flex; flex-direction:column; align-items:center;">
 
         <div class="field-label">Email</div>
         <div class="input-wrapper">
           <img src="/email_icon.png" class="input-icon" alt="email">
-          <input id="static-email" class="input-field" type="email" placeholder="Enter your email" autocomplete="email">
+          <input id="signup-email" class="input-field" type="email" placeholder="willsoonmakeit@gmail.com">
         </div>
 
         <div class="field-label">Password</div>
         <div class="input-wrapper">
           <img src="/password_icon.png" class="input-icon" alt="lock">
-          <input id="static-password" class="input-field" type="password" placeholder="Enter your password" autocomplete="current-password">
+          <input id="signup-password" class="input-field" type="password" placeholder="••••••••">
         </div>
 
-        <button class="submit-btn" id="static-submit">Log In</button>
+        <div class="field-label">Confirm Password</div>
+        <div class="input-wrapper">
+          <img src="/password_icon.png" class="input-icon" alt="lock">
+          <input id="signup-password-confirm" class="input-field" type="password" placeholder="••••••••">
+        </div>
+
+        <button class="submit-btn" id="signup-submit">Sign Up</button>
+
         <div class="error-message" id="error-message"></div>
+        <div class="success-message" id="success-message"></div>
+
+        <div class="login-link">
+          Already have an account? <a href="/login">Log in here</a>
+        </div>
 
       </div>
 
@@ -212,27 +256,48 @@
   </div>
 
   <script>
-    document.getElementById('static-submit').addEventListener('click', async () => {
-      const email = document.getElementById('static-email').value.trim();
-      const password = document.getElementById('static-password').value;
-      const submitBtn = document.getElementById('static-submit');
-      const errorMessage = document.getElementById('error-message');
-      
-      // Validate inputs
-      if (!email || !password) {
-        errorMessage.textContent = 'Please enter both email and password';
-        errorMessage.classList.add('show');
+    const signupBtn = document.getElementById('signup-submit');
+    const emailInput = document.getElementById('signup-email');
+    const passwordInput = document.getElementById('signup-password');
+    const passwordConfirmInput = document.getElementById('signup-password-confirm');
+    const errorMessage = document.getElementById('error-message');
+    const successMessage = document.getElementById('success-message');
+
+    signupBtn.addEventListener('click', async () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      const passwordConfirm = passwordConfirmInput.value;
+
+      // Reset messages
+      errorMessage.classList.remove('show');
+      successMessage.classList.remove('show');
+
+      // Validation
+      if (!email) {
+        showError('Please enter an email address');
         return;
       }
 
-      errorMessage.classList.remove('show');
-      
+      if (!password || !passwordConfirm) {
+        showError('Please enter a password');
+        return;
+      }
+
+      if (password !== passwordConfirm) {
+        showError('Passwords do not match');
+        return;
+      }
+
+      if (password.length < 6) {
+        showError('Password must be at least 6 characters');
+        return;
+      }
+
       try {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Logging in...';
-        
-        // Authenticate with Supabase
-        const authResp = await fetch('https://vkgkqcsjgiyadivuxosp.supabase.co/auth/v1/token?grant_type=password', {
+        signupBtn.disabled = true;
+        signupBtn.textContent = 'Creating account...';
+
+        const resp = await fetch('https://vkgkqcsjgiyadivuxosp.supabase.co/auth/v1/signup', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -243,52 +308,38 @@
             password: password
           })
         });
-        
-        const authData = await authResp.json();
-        console.log('Auth response status:', authResp.status);
-        console.log('Auth response:', authData);
-        
-        if (!authResp.ok || authData.error) {
-          console.error('Auth error:', authData.error_description || authData.error);
-          errorMessage.textContent = authData.error_description || 'Invalid email or password';
-          errorMessage.classList.add('show');
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Log In';
+
+        const data = await resp.json();
+        console.log('Signup response:', data); // Debug log
+
+        if (!resp.ok) {
+          showError('Sign up failed: ' + (data.error_description || data.error || 'Unknown error'));
+          signupBtn.disabled = false;
+          signupBtn.textContent = 'Sign Up';
           return;
         }
-        
-        if (authData.access_token && authData.user) {
-          // Store authentication credentials
-          localStorage.setItem('sb_auth_token', authData.access_token);
-          localStorage.setItem('sb_refresh_token', authData.refresh_token || '');
-          localStorage.setItem('sb_user_id', authData.user.id);
-          localStorage.setItem('sb_user_email', authData.user.email);
-          
-          console.log('Login successful, redirecting...');
-          
-          // Redirect to channels page
-          window.location.href = '/channels/@me';
-        } else {
-          errorMessage.textContent = 'Login failed: No session token received';
-          errorMessage.classList.add('show');
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Log In';
-        }
+
+        // Success - redirect after delay
+        showSuccess('Account created successfully! Redirecting to login...');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 3000);
       } catch (e) {
-        console.error('Login exception:', e);
-        errorMessage.textContent = 'Connection error. Please try again.';
-        errorMessage.classList.add('show');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Log In';
+        showError('Sign up failed: ' + (e instanceof Error ? e.message : String(e)));
+        signupBtn.disabled = false;
+        signupBtn.textContent = 'Sign Up';
       }
     });
 
-    // Allow Enter key to submit
-    document.getElementById('static-password').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        document.getElementById('static-submit').click();
-      }
-    });
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorMessage.classList.add('show');
+    }
+
+    function showSuccess(msg) {
+      successMessage.textContent = msg;
+      successMessage.classList.add('show');
+    }
   </script>
 
 </body>

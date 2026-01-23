@@ -3,6 +3,7 @@ import {I18n} from "./i18n.js";
 import {Dialog, FormError} from "./settings.js";
 import {makeRegister} from "./register.js";
 import {trimTrailingSlashes} from "./utils/netUtils";
+import {signIn, storeAuthToken} from "./utils/supabaseAuth.js";
 function generateRecArea(recover = document.getElementById("recover")) {
 	if (!recover) return;
 	recover.innerHTML = "";
@@ -54,43 +55,59 @@ export async function makeLogin(
 	const dialog = new Dialog("");
 	const opt = dialog.options;
 	opt.addTitle(I18n.login.login());
-	const picker = opt.addInstancePicker(
-		(info) => {
-			form.fetchURL = trimTrailingSlashes(info.api) + "/auth/login";
-			recover(info, rec);
-		},
-		{
-			instance,
-		},
-	);
 	dialog.show(trasparentBg);
 
 	const form = opt.addForm(
 		"",
-		(res) => {
-			if ("token" in res && typeof res.token == "string") {
-				const u = adduser({
-					serverurls: JSON.parse(localStorage.getItem("instanceinfo") as string),
-					email: email.value,
-					token: res.token,
-				});
-				u.username = email.value;
-				if (handle) {
-					handle(u);
-					dialog.hide();
-					return;
+		async (res) => {
+			if ("email" in res && "password" in res) {
+				const emailValue = res.email as string;
+				const passwordValue = res.password as string;
+				
+				// Authenticate with Supabase
+				const authResponse = await signIn(emailValue, passwordValue);
+				
+				if (authResponse.error) {
+					throw new FormError(password, authResponse.error.message || "Login failed");
 				}
-				const redir = new URLSearchParams(window.location.search).get("goback");
-				if (redir && (!URL.canParse(redir) || new URL(redir).host === window.location.host)) {
-					window.location.href = redir;
+				
+				if (authResponse.session?.access_token && authResponse.user?.id) {
+					// Store authentication credentials
+					storeAuthToken(authResponse.session.access_token);
+					localStorage.setItem('sb_user_id', authResponse.user.id);
+					localStorage.setItem('sb_user_email', authResponse.user.email);
+					
+					// Load the Spacebar instance
+					try {
+						const instanceInfo = JSON.parse(localStorage.getItem("instanceinfo") as string);
+						const u = adduser({
+							serverurls: instanceInfo,
+							email: emailValue,
+							token: authResponse.session.access_token,
+						});
+						u.username = emailValue;
+						
+						if (handle) {
+							handle(u);
+							dialog.hide();
+							return;
+						}
+						
+						// Redirect to main application
+						const redir = new URLSearchParams(window.location.search).get("goback");
+						if (redir && (!URL.canParse(redir) || new URL(redir).host === window.location.host)) {
+							window.location.href = redir;
+						} else {
+							window.location.href = "/channels/@me";
+						}
+					} catch (err) {
+						throw new FormError(password, "Failed to load instance");
+					}
 				} else {
-					window.location.href = "/channels/@me";
+					throw new FormError(password, "No session token received");
 				}
 			} else {
-				//@ts-ignore
-				//TODO just type this to get rid of the ignore :P
-				const message = res.errors.at(0)._errors[0].message;
-				throw new FormError(password, message);
+				throw new FormError(password, "Invalid form data");
 			}
 		},
 		{
@@ -103,7 +120,6 @@ export async function makeLogin(
 		},
 	);
 	const button = form.button.deref();
-	picker.giveButton(button);
 	button?.classList.add("createAccount");
 
 	const email = form.addTextInput(I18n.htmlPages.emailField(), "login");
@@ -117,9 +133,13 @@ export async function makeLogin(
 	a.textContent = I18n.htmlPages.noAccount();
 	const rec = document.createElement("div");
 	form.addHTMLArea(rec);
+	// Default the login endpoint to Spacebar's API (no instance selection)
+	form.fetchURL = "https://spacebar.chat/api/auth/login";
 	form.addHTMLArea(a);
 }
 await I18n.done;
-if (window.location.pathname.startsWith("/login")) {
+// If the static login-shell exists on the page, prefer it and skip the
+// SPA/dialog-based login which would otherwise override the static layout.
+if (window.location.pathname.startsWith("/login") && !document.querySelector('.login-shell')) {
 	makeLogin();
 }

@@ -45,7 +45,7 @@ async function bundleFiles() {
 						},
 					},
 				},
-				externalModules: ["/translations/langs.js"],
+				externalModules: ["/translations/langs.js", "@supabase/supabase-js"],
 				options: {
 					minify: !process.argv.includes("watch"),
 					jsc: {
