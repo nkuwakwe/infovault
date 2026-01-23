@@ -906,12 +906,6 @@ class Channel extends SnowFlake {
 
 			div.append(button);
 
-			// Hash symbol
-			const hashSpan = document.createElement("span");
-			hashSpan.classList.add("for_the_hash");
-			hashSpan.textContent = "#";
-			button.appendChild(hashSpan);
-
 			const decoration = this.renderIcon();
 			button.appendChild(decoration);
 
