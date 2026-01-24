@@ -1758,14 +1758,7 @@ span.instanceStatus {
 	margin-right: 2px;
 }
 
-.for_the_pipe {
-	position: relative;
-	top: 8px;
-	left: 58px;
-	width: 2px;
-	height: 15px;
-	background-color: #ffffff;
-}
+
 .cunread {
 	position: relative;
 	color: var(--primary-text-prominent);
@@ -3097,9 +3090,9 @@ img.bigembedimg {
 
 .for_the_pipe {
 	position: relative;
-	top: 8px;
-	left: 58px;
-	width: 2px;
+	top: 2px;
+	left: 0px;
+	width: 2.8px;
 	height: 15px;
 	background-color: #ffffff;
 	margin: 0 4px;

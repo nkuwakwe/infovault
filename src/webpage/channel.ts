@@ -746,26 +746,16 @@ class Channel extends SnowFlake {
 	}
 	voiceUsers = new WeakRef(document.createElement("div"));
 	iconElm = new WeakRef(document.createElement("span") as HTMLSpanElement | safeImg);
+	customIconElm = new WeakRef(document.createElement("span") as HTMLSpanElement | safeImg);
 	renderIcon() {
+		// Create wrapper container for hashtag + custom icon
+		const wrapper = document.createElement("div");
+		wrapper.style.display = "flex";
+		wrapper.style.alignItems = "center";
+		
+		// Create the hashtag/type icon
 		let icon = this.iconElm.deref();
-		if (this.icon && !this.localuser.perminfo.user.disableIcons) {
-			if (icon instanceof HTMLImageElement) {
-				icon.setSrcs(this.iconUrl());
-			} else {
-				const old = icon;
-				const div = this.html?.deref();
-				icon = createImg(this.iconUrl(), undefined, div, "icon");
-				this.iconElm = new WeakRef(icon);
-				if (old) {
-					try {
-						old.before(icon);
-						old.remove();
-					} catch {}
-				}
-			}
-			icon.classList.add("space");
-			return icon;
-		} else if (!(icon instanceof HTMLSpanElement)) {
+		if (!(icon instanceof HTMLSpanElement)) {
 			const old = icon;
 			icon = document.createElement("span");
 			this.iconElm = new WeakRef(icon);
@@ -792,7 +782,30 @@ class Channel extends SnowFlake {
 		} else {
 			console.log(this.type);
 		}
-		return icon;
+		wrapper.appendChild(icon);
+		
+		// Add custom icon if it exists
+		if (this.icon && !this.localuser.perminfo.user.disableIcons) {
+			let customIcon = this.customIconElm.deref();
+			if (customIcon instanceof HTMLImageElement) {
+				customIcon.setSrcs(this.iconUrl());
+			} else {
+				const old = customIcon;
+				const div = this.html?.deref();
+				customIcon = createImg(this.iconUrl(), undefined, div, "icon");
+				this.customIconElm = new WeakRef(customIcon);
+				if (old) {
+					try {
+						old.before(customIcon);
+						old.remove();
+					} catch {}
+				}
+			}
+			customIcon.classList.add("space");
+			wrapper.appendChild(customIcon);
+		}
+		
+		return wrapper;
 	}
 	createguildHTML(admin = false): HTMLDivElement {
 		const div = document.createElement("div");
