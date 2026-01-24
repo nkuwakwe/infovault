@@ -2132,6 +2132,7 @@ span.instanceStatus {
 	overflow-y: auto;
 	margin-right: 0.03in;
 	padding: 10px 0;
+	font-family: "Poppins-Medium", Helvetica;
 }
 #typebox:not([contenteditable="false"]):empty:before,
 #typebox:not([contenteditable="false"]):has(span:only-child:empty):before {
@@ -2139,11 +2140,12 @@ span.instanceStatus {
 	opacity: 0.5;
 	position: absolute;
 	cursor: text;
+	font-family: "Poppins-Medium", Helvetica;
 }
 .outerTypeBox {
 	max-height: 50svh;
 	padding: 10px 10px;
-	background: var(--typebox-bg);
+	background: #947956;
 	border-radius: 4px;
 	display: flex;
 	flex-direction: row;
@@ -2314,6 +2316,8 @@ span.instanceStatus {
 }
 .message {
 	padding-right: 28px;
+	font-family: "Poppins-Medium", Helvetica;
+	color: #C1C4D6;
 }
 .topMessage {
 	margin-top: 16px;
