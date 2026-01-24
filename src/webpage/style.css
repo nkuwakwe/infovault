@@ -1736,6 +1736,7 @@ span.instanceStatus {
 	display: flex;
 	align-items: center;
 	transition: font-weight 0.1s;
+	font-family: "Poppins-Medium", Helvetica;
 }
 .channelbutton:hover {
 	background: var(--channel-hover);
@@ -3096,7 +3097,8 @@ img.bigembedimg {
 	height: 15px;
 	background-color: #ffffff;
 	border-radius: 3px;
-	margin: 0 4px;
+	margin-left: 4px;
+	margin-right: 9px;
 }
 .cunread {
 	position: relative;
