@@ -1741,12 +1741,99 @@ class Channel extends SnowFlake {
 		if (this.curCommand) {
 			this.curCommand.render(typebox, this);
 		}
-		typebox.style.setProperty("--channel-text", JSON.stringify(I18n.channel.typebox(this.name)));
+		
+		// Get the parent outerTypeBox container
+		const outerTypeBox = typebox.closest(".outerTypeBox") as HTMLElement;
+		if (!outerTypeBox) return;
+		
+		// Create placeholder with "Message" + icon + rectangle + channel_name format
+		const createPlaceholder = () => {
+			const placeholderContainer = document.createElement("div");
+			placeholderContainer.className = "typebox-placeholder";
+			placeholderContainer.style.display = "flex";
+			placeholderContainer.style.alignItems = "center";
+			placeholderContainer.style.gap = "4px";
+			placeholderContainer.style.opacity = "0.5";
+			placeholderContainer.style.pointerEvents = "none";
+			placeholderContainer.style.position = "absolute";
+			placeholderContainer.style.cursor = "text";
+			placeholderContainer.style.left = "16px";
+			placeholderContainer.style.top = "50%";
+			placeholderContainer.style.transform = "translateY(-50%)";
+			
+			// "Message" text
+			const messageText = document.createElement("span");
+			messageText.textContent = "Message";
+			messageText.style.fontFamily = '"Poppins-Medium", Helvetica';
+			messageText.style.color = "#C3C3C3";
+			placeholderContainer.appendChild(messageText);
+			
+			// Channel icon
+			if (this.icon) {
+				const iconImg = document.createElement("img");
+				iconImg.src = this.iconUrl();
+				iconImg.style.width = "16px";
+				iconImg.style.height = "16px";
+				iconImg.style.borderRadius = "2px";
+				placeholderContainer.appendChild(iconImg);
+			}
+			
+			// Rectangle (for_the_pipe style)
+			const rectangle = document.createElement("div");
+			rectangle.style.position = "relative";
+			rectangle.style.top = "2px";
+			rectangle.style.width = "2.8px";
+			rectangle.style.height = "15px";
+			rectangle.style.backgroundColor = "#ffffff";
+			rectangle.style.borderRadius = "3px";
+			rectangle.style.marginLeft = "4px";
+			rectangle.style.marginRight = "9px";
+			placeholderContainer.appendChild(rectangle);
+			
+			// Channel name
+			const nameSpan = document.createElement("span");
+			nameSpan.textContent = this.name;
+			nameSpan.style.fontFamily = '"Poppins-Medium", Helvetica';
+			nameSpan.style.color = "#C3C3C3";
+			placeholderContainer.appendChild(nameSpan);
+			
+			return placeholderContainer;
+		};
+		
+		const showPlaceholder = () => {
+			const oldPlaceholder = outerTypeBox.querySelector(".typebox-placeholder");
+			if (oldPlaceholder) {
+				oldPlaceholder.remove();
+			}
+			if (typebox.textContent.trim() === "" && !typebox.querySelector("img")) {
+				outerTypeBox.appendChild(createPlaceholder());
+			}
+		};
+		
+		const hidePlaceholder = () => {
+			const oldPlaceholder = outerTypeBox.querySelector(".typebox-placeholder");
+			if (oldPlaceholder) {
+				oldPlaceholder.remove();
+			}
+		};
+		
+		// Store functions for later use
+		(typebox as any).showPlaceholder = showPlaceholder;
+		(typebox as any).hidePlaceholder = hidePlaceholder;
+		
+		// Add event listeners to hide placeholder on input
+		typebox.addEventListener("input", hidePlaceholder);
+		typebox.addEventListener("blur", showPlaceholder);
+		
+		// Show placeholder initially
+		showPlaceholder();
+		
 		if (!this.curCommand) {
 			const md = typebox.markdown;
 			md.owner = this;
 			typebox.textContent = this.textSave;
 			md.boxupdate(Infinity);
+			showPlaceholder();
 		}
 		this.localuser.fileExtange(this.files, this.htmls);
 

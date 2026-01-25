@@ -2122,36 +2122,62 @@ span.instanceStatus {
 }
 #typebox {
 	position: relative;
-	margin: -10px 0px;
+	margin: 0;
 	flex-grow: 1;
 	width: 1px;
-	margin-left: 0.06in;
+	margin-left: 0;
 	white-space: preserve-breaks;
 	flex-shrink: 1;
 	text-wrap: auto;
 	overflow-y: auto;
-	margin-right: 0.03in;
-	padding: 10px 0;
+	margin-right: 0;
+	padding: 10px;
 	font-family: "Poppins-Medium", Helvetica;
+	border-radius: 8px;
+	background: #a0785c;
 }
 #typebox:not([contenteditable="false"]):empty:before,
 #typebox:not([contenteditable="false"]):has(span:only-child:empty):before {
-	content: var(--channel-text);
+	content: "";
 	opacity: 0.5;
 	position: absolute;
 	cursor: text;
 	font-family: "Poppins-Medium", Helvetica;
+	color: #C3C3C3;
+}
+.typebox-placeholder {
+	position: absolute;
+	cursor: text;
+	pointer-events: none;
 }
 .outerTypeBox {
 	max-height: 50svh;
-	padding: 10px 10px;
-	background: #947956;
+	padding: 10px 12px;
+	background: transparent;
 	border-radius: 4px;
 	display: flex;
 	flex-direction: row;
 	position: relative;
+	gap: 16px;
+	align-items: center;
 }
 
+.outerTypeBox > #upload {
+	flex-shrink: 0;
+	width: 98px;
+	height: 98px;
+	border-radius: 50%;
+	background: #7a5f48;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background 0.2s;
+}
+
+.outerTypeBox > #upload:hover {
+	background: #8a6d56;
+}
 .searchBox:empty {
 	width: 2in;
 }
