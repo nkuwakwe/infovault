@@ -2132,8 +2132,9 @@ span.instanceStatus {
 	overflow-y: auto;
 	margin-right: 0;
 	padding: 10px;
+	padding: 10px 64px 10px 10px;
 	font-family: "Poppins-Medium", Helvetica;
-	border-radius: 8px;
+	border-radius: 27px;
 	background: #a0785c;
 }
 #typebox:not([contenteditable="false"]):empty:before,
@@ -2149,6 +2150,9 @@ span.instanceStatus {
 	position: absolute;
 	cursor: text;
 	pointer-events: none;
+	left: 250px;
+	top: 50%;
+	transform: translateY(-50%);
 }
 .outerTypeBox {
 	max-height: 50svh;
@@ -2158,22 +2162,96 @@ span.instanceStatus {
 	display: flex;
 	flex-direction: row;
 	position: relative;
-	gap: 16px;
+	gap: 26px;
 	align-items: center;
 }
 
 .outerTypeBox > #upload {
 	flex-shrink: 0;
-	width: 98px;
-	height: 98px;
-	border-radius: 50%;
+	width: 40px !important;
+	height: 40px !important;
+	border-radius: 50px;
 	background: #7a5f48;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
 	transition: background 0.2s;
+	border: none;
 }
+
+/* inner svg icon sizing + color */
+.outerTypeBox > #upload .svgicon {
+	width: 24px;
+	height: 24px;
+	min-width: 24px;
+	min-height: 24px;
+	flex-shrink: 0;
+	display: block;
+	background: #C3C3C3 !important;
+	mask-image: url(./icons/plus.svg) !important;
+	-webkit-mask-image: url(./icons/plus.svg) !important;
+	mask-position: center !important;
+	mask-size: contain !important;
+	mask-repeat: no-repeat !important;
+	-webkit-mask-position: center !important;
+	-webkit-mask-size: contain !important;
+	-webkit-mask-repeat: no-repeat !important;
+	border-radius: 8px;
+}
+
+.outerTypeBox > #upload .svg-plus {
+	mask-image: url(./icons/plus.svg) !important;
+	-webkit-mask-image: url(./icons/plus.svg) !important;
+}
+
+.outerTypeBox > #upload:hover {
+	background: #8a6d56;
+}
+
+/* Position emoji icon at the right side of the typebox */
+.outerTypeBox > #emojiTB {
+	position: absolute;
+	right: 84px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 28px;
+	height: 28px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+
+/* Right button styling */
+.outerTypeBox > #rightButton {
+	flex-shrink: 0;
+	width: 40px !important;
+	height: 40px !important;
+	border-radius: 50px;
+	background: #a0785c;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background 0.2s;
+	border: none;
+}
+
+.outerTypeBox > #rightButton:hover {
+	background: #906948;
+}
+
+/* Right button color change when typebox has actual content */
+.outerTypeBox > #rightButton.has-content {
+	background: #C79049;
+}
+
+.outerTypeBox > #rightButton.has-content:hover {
+	background: #d9a55c;
+}
+
+
 
 .outerTypeBox > #upload:hover {
 	background: #8a6d56;

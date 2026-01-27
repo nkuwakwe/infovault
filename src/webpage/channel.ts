@@ -1684,6 +1684,21 @@ class Channel extends SnowFlake {
 	files: Blob[] = [];
 	htmls = new WeakMap<Blob, HTMLElement>();
 	textSave = "";
+	
+	// Helper function to update rightButton color based on typebox content
+	updateRightButtonColor() {
+		const typebox = document.getElementById("typebox") as HTMLElement;
+		const rightButton = document.getElementById("rightButton") as HTMLElement;
+		if (rightButton && typebox) {
+			const hasContent = typebox.textContent.trim() !== "" || typebox.querySelector("img");
+			if (hasContent) {
+				rightButton.classList.add("has-content");
+			} else {
+				rightButton.classList.remove("has-content");
+			}
+		}
+	}
+	
 	collectBox() {
 		const typebox = document.getElementById("typebox") as CustomHTMLDivElement;
 		const [files, html] = this.localuser.fileExtange([], new WeakMap<Blob, HTMLElement>());
@@ -1691,6 +1706,8 @@ class Channel extends SnowFlake {
 		this.htmls = html;
 		this.textSave = MarkDown.gatherBoxText(typebox);
 		typebox.textContent = "";
+		// Update button color after clearing content
+		this.updateRightButtonColor();
 	}
 	curCommand?: Command;
 	curWatch = () => {};
@@ -1704,6 +1721,8 @@ class Channel extends SnowFlake {
 			typebox.innerHTML = "";
 			typebox.markdown.boxupdate();
 			typebox.removeEventListener("keyup", this.curWatch);
+			// Update button color after clearing content
+			this.updateRightButtonColor();
 		}
 	}
 	startCommand(command: Command) {
@@ -1757,7 +1776,7 @@ class Channel extends SnowFlake {
 			placeholderContainer.style.pointerEvents = "none";
 			placeholderContainer.style.position = "absolute";
 			placeholderContainer.style.cursor = "text";
-			placeholderContainer.style.left = "16px";
+			placeholderContainer.style.left = "89px";
 			placeholderContainer.style.top = "50%";
 			placeholderContainer.style.transform = "translateY(-50%)";
 			
@@ -1821,9 +1840,18 @@ class Channel extends SnowFlake {
 		(typebox as any).showPlaceholder = showPlaceholder;
 		(typebox as any).hidePlaceholder = hidePlaceholder;
 		
-		// Add event listeners to hide placeholder on input
-		typebox.addEventListener("input", hidePlaceholder);
-		typebox.addEventListener("blur", showPlaceholder);
+		// Add event listeners to hide placeholder on input and update button color
+		typebox.addEventListener("input", () => {
+			hidePlaceholder();
+			this.updateRightButtonColor();
+		});
+		typebox.addEventListener("blur", () => {
+			showPlaceholder();
+			this.updateRightButtonColor();
+		});
+		
+		// Initialize button color state
+		this.updateRightButtonColor();
 		
 		// Show placeholder initially
 		showPlaceholder();
@@ -1834,6 +1862,8 @@ class Channel extends SnowFlake {
 			typebox.textContent = this.textSave;
 			md.boxupdate(Infinity);
 			showPlaceholder();
+			// Update button color after restoring text
+			this.updateRightButtonColor();
 		}
 		this.localuser.fileExtange(this.files, this.htmls);
 
