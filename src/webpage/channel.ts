@@ -1685,7 +1685,7 @@ class Channel extends SnowFlake {
 	htmls = new WeakMap<Blob, HTMLElement>();
 	textSave = "";
 	
-	// Helper function to update rightButton color based on typebox content
+	// Helper function to update rightButton color and icon based on typebox content
 	updateRightButtonColor() {
 		const typebox = document.getElementById("typebox") as HTMLElement;
 		const rightButton = document.getElementById("rightButton") as HTMLElement;
@@ -1693,8 +1693,20 @@ class Channel extends SnowFlake {
 			const hasContent = typebox.textContent.trim() !== "" || typebox.querySelector("img");
 			if (hasContent) {
 				rightButton.classList.add("has-content");
+				// Switch to send icon when there's content
+				const iconSpan = rightButton.querySelector(".svgicon");
+				if (iconSpan) {
+					iconSpan.classList.remove("svg-mic");
+					iconSpan.classList.add("svg-send");
+				}
 			} else {
 				rightButton.classList.remove("has-content");
+				// Switch to mic icon when empty
+				const iconSpan = rightButton.querySelector(".svgicon");
+				if (iconSpan) {
+					iconSpan.classList.remove("svg-send");
+					iconSpan.classList.add("svg-mic");
+				}
 			}
 		}
 	}
