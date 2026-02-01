@@ -1099,6 +1099,13 @@ textarea {
 	background-color: var(--red);
 	mask-size: contain !important;
 }
+.svg-send {
+	height: 22px;
+	width: 22px;
+	margin: 6px;
+	mask: url(./icons/send.svg);
+	mask-size: contain !important;
+}
 .mobileback {
 	visibility: hidden;
 	height: 0px;

@@ -1865,6 +1865,57 @@ class Channel extends SnowFlake {
 		// Initialize button color state
 		this.updateRightButtonColor();
 		
+		// Add click event listener to rightButton for sending messages
+		const rightButton = document.getElementById("rightButton") as HTMLElement;
+		if (rightButton) {
+			rightButton.addEventListener("click", () => {
+				const typebox = document.getElementById("typebox") as HTMLElement;
+				if (rightButton && typebox) {
+					const hasContent = typebox.textContent.trim() !== "" || typebox.querySelector("img");
+					if (hasContent && this.canMessageRightNow()) {
+						if (this.curCommand) {
+							this.submitCommand();
+							return;
+						}
+						
+						// Replicate the same logic as Enter key handler
+						const content = MarkDown.gatherBoxText(typebox as CustomHTMLDivElement);
+						const replyingTo = this.replyingto;
+						if (replyingTo?.div) {
+							replyingTo.div.classList.remove("replying");
+						}
+						this.replyingto = null;
+						this.makereplybox();
+						
+						// Get attachments and clear images
+						const attachments = this.files.filter((_) => document.contains(this.htmls.get(_) || null));
+						this.files = [];
+						this.htmls = new WeakMap();
+						
+						// Clear the typebox
+						(typebox as CustomHTMLDivElement).innerHTML = "";
+						(typebox as CustomHTMLDivElement).markdown.txt = [];
+						
+						// Send the message
+						this.sendMessage(
+							content,
+							{
+								attachments,
+								embeds: [],
+								replyingto: replyingTo,
+								sticker_ids: [],
+							},
+							(res) => {
+								if (res === "Ok") {
+									// Message sent successfully
+								}
+							},
+						);
+					}
+				}
+			});
+		}
+		
 		// Show placeholder initially
 		showPlaceholder();
 		
