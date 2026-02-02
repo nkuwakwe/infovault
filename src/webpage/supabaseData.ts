@@ -520,6 +520,54 @@ export async function setLocalSettings(userId: string, settings: Partial<LocalSe
 
 
 /**
+ * Delete a guild from Supabase by Discord ID
+ */
+export async function deleteGuild(discordGuildId: string): Promise<boolean> {
+	try {
+		const client = await getSupabaseClient();
+		console.log('Attempting to delete guild from Supabase by Discord ID:', discordGuildId);
+		
+		// First find the guild by discord_owner_id
+		const { data: guildData, error: findError } = await client
+			.from('guilds')
+			.select('id')
+			.eq('discord_owner_id', discordGuildId)
+			.single();
+
+		if (findError) {
+			console.error('Error finding guild:', findError);
+			return false;
+		}
+
+		if (!guildData) {
+			console.log('Guild not found in Supabase for Discord ID:', discordGuildId);
+			return false; // Not an error, just doesn't exist
+		}
+
+		console.log('Found guild in Supabase:', guildData.id, 'now deleting...');
+
+		// Now delete by the Supabase UUID
+		const { data, error } = await client
+			.from('guilds')
+			.delete()
+			.eq('id', guildData.id);
+
+		console.log('Supabase delete response:', { data, error });
+
+		if (error) {
+			console.error('Error deleting guild:', error);
+			return false;
+		}
+
+		console.log('Guild successfully deleted from Supabase:', guildData.id);
+		return true;
+	} catch (error) {
+		console.error('Failed to delete guild:', error);
+		return false;
+	}
+}
+
+/**
  * Get a guild by ID
  */
 export async function getGuild(guildId: string): Promise<Guild | null> {
@@ -581,6 +629,7 @@ export const supabaseData = {
 	getLocalSettings,
 	setLocalSettings,
 	createGuild,
+	deleteGuild,
 	getGuild,
 	getUserGuilds
 };

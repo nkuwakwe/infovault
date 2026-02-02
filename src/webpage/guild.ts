@@ -6,6 +6,7 @@ import {Member} from "./member.js";
 import {Dialog, FormError, Options, Settings} from "./settings.js";
 import {Permissions} from "./permissions.js";
 import {SnowFlake} from "./snowflake.js";
+import {deleteGuild as deleteSupabaseGuild} from "./supabaseData.js";
 import {
 	channeljson,
 	guildjson,
@@ -1633,10 +1634,29 @@ class Guild extends SnowFlake {
 		full.show();
 	}
 	async delete() {
-		return fetch(this.info.api + "/guilds/" + this.id + "/delete", {
+		// First delete from the existing API
+		const response = await fetch(this.info.api + "/guilds/" + this.id + "/delete", {
 			method: "POST",
 			headers: this.headers,
 		});
+
+		// If API deletion was successful, also delete from Supabase
+		if (response.ok) {
+			try {
+				// Try to delete from Supabase using the owner's Discord ID
+				const deleted = await deleteSupabaseGuild(this.properties.owner_id);
+				if (deleted) {
+					console.log('Guild successfully deleted from Supabase:', this.id);
+				} else {
+					console.warn('Failed to delete guild from Supabase, but guild was deleted from API');
+				}
+			} catch (error) {
+				console.error('Error deleting guild from Supabase:', error);
+				// Don't fail the entire operation if Supabase delete fails
+			}
+		}
+
+		return response;
 	}
 	get mentions() {
 		let mentions = 0;

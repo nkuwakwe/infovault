@@ -7,6 +7,7 @@ import {guildjson} from "./jsontypes.js";
 import {PermissionToggle} from "./role.js";
 import {Permissions} from "./permissions.js";
 import {I18n} from "./i18n.js";
+import {deleteGuild as deleteSupabaseGuild} from "./supabaseData.js";
 class Bot {
 	readonly owner: Localuser;
 	readonly token: string;
@@ -194,9 +195,26 @@ class Bot {
 							guildsetting.addHTMLArea(content);
 							guildsetting.addButtonInput("", I18n.leaveGuild(), () => {
 								if (confirm(I18n.confirmGuildLeave(guild.name))) {
+									// First leave from the existing API
 									fetch(this.info.api + "/users/@me/guilds/" + guild.id, {
 										method: "DELETE",
 										headers: this.headers,
+									}).then(async (response) => {
+										// If leaving was successful, also remove from Supabase
+										if (response.ok) {
+											try {
+												// Try to delete from Supabase
+												const deleted = await deleteSupabaseGuild(guild.id);
+												if (deleted) {
+													console.log('Guild successfully removed from Supabase:', guild.id);
+												} else {
+													console.warn('Failed to remove guild from Supabase, but guild was left from API');
+												}
+											} catch (error) {
+												console.error('Error removing guild from Supabase:', error);
+												// Don't fail the entire operation if Supabase delete fails
+											}
+										}
 									});
 								}
 							});
