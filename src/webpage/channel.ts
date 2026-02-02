@@ -1907,7 +1907,8 @@ class Channel extends SnowFlake {
 							},
 							(res) => {
 								if (res === "Ok") {
-									// Message sent successfully
+									// Message sent successfully - update button to show mic icon
+									this.updateRightButtonColor();
 								}
 							},
 						);
