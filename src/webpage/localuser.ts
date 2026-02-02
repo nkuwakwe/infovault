@@ -44,6 +44,7 @@ import {
 } from "./utils/storage/userPreferences";
 import {getDeveloperSettings, setDeveloperSettings} from "./utils/storage/devSettings";
 import {getLocalSettings, ServiceWorkerModeValues} from "./utils/storage/localSettings.js";
+import {createGuild as createSupabaseGuild, discordIdToUuid} from "./supabaseData.js";
 type traceObj = {
 	micros: number;
 	calls?: (string | traceObj)[];
@@ -2106,13 +2107,64 @@ class Localuser {
 		}
 	}
 	async makeGuild(fields: {name: string; icon: string | null}) {
-		return await (
+		// First create the guild through the existing API
+		const guildResponse = await (
 			await fetch(this.info.api + "/guilds", {
 				method: "POST",
 				headers: this.headers,
 				body: JSON.stringify(fields),
 			})
 		).json();
+
+		// If guild creation was successful, save it to Supabase
+		if (guildResponse && !guildResponse.message) {
+			try {
+				// Map the response to our Supabase guild format
+				const guildData = {
+					name: guildResponse.name || fields.name,
+					description: guildResponse.description || null,
+					icon: guildResponse.icon || fields.icon,
+					banner: guildResponse.banner || null,
+					splash: guildResponse.splash || null,
+					discord_owner_id: this.user.id, // Store Discord ID directly
+					region: guildResponse.region || null,
+					preferred_locale: guildResponse.preferred_locale || 'en-US',
+					features: guildResponse.features || [],
+					verification_level: guildResponse.verification_level || 0,
+					default_message_notifications: guildResponse.default_message_notifications || 0,
+					explicit_content_filter: guildResponse.explicit_content_filter || 0,
+					mfa_level: guildResponse.mfa_level || 0,
+					premium_tier: guildResponse.premium_tier || 0,
+					premium_progress_bar_enabled: guildResponse.premium_progress_bar_enabled || false,
+					nsfw: guildResponse.nsfw || false,
+					large: guildResponse.large || false,
+					member_count: guildResponse.member_count || 1,
+					max_members: guildResponse.max_members || 100000,
+					max_video_channel_users: guildResponse.max_video_channel_users || 25,
+					afk_channel_id: guildResponse.afk_channel_id || null,
+					afk_timeout: guildResponse.afk_timeout || 300,
+					system_channel_id: guildResponse.system_channel_id || null,
+					system_channel_flags: guildResponse.system_channel_flags || 0,
+					rules_channel_id: guildResponse.rules_channel_id || null,
+					public_updates_channel_id: guildResponse.public_updates_channel_id || null,
+					vanity_url_code: guildResponse.vanity_url_code || null,
+					discovery_splash: guildResponse.discovery_splash || null,
+					safety_alerts_channel_id: guildResponse.safety_alerts_channel_id || null
+				};
+
+				const supabaseGuild = await createSupabaseGuild(guildData);
+				if (supabaseGuild) {
+					console.log('Guild successfully saved to Supabase:', supabaseGuild.id);
+				} else {
+					console.warn('Failed to save guild to Supabase, but guild was created successfully');
+				}
+			} catch (error) {
+				console.error('Error saving guild to Supabase:', error);
+				// Don't fail the entire operation if Supabase save fails
+			}
+		}
+
+		return guildResponse;
 	}
 	async guildDiscovery() {
 		this.guildids.get("@me")?.loadChannel("discover");

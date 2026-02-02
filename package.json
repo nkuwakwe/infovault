@@ -13,8 +13,9 @@
 	"author": "MathMan05",
 	"license": "GPL-3.0",
 	"dependencies": {
+		"@supabase/supabase-js": "^2.39.0",
 		"@swc/core": "1.11.24",
-		"@supabase/supabase-js": "^2.39.0"
+		"dotenv": "^17.2.3"
 	},
 	"devDependencies": {
 		"@types/audioworklet": "^0.0.90",
