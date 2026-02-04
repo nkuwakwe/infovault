@@ -10,6 +10,7 @@ import {Emoji} from "./emoji.js";
 import {I18n} from "./i18n.js";
 import {Localuser} from "./localuser.js";
 import {MarkDown} from "./markdown.js";
+import { json } from "express";
 
 interface OptionsElement<x> {
 	//
@@ -2043,10 +2044,6 @@ class Form implements OptionsElement<object> {
 				}
 				return;
 			}
-		}
-		// Handle successful response
-		if (json.ticket) {
-			// Handle ticket response if needed
 		}
 	}
 
