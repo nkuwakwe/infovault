@@ -397,7 +397,7 @@ class Emoji {
 					const clickEvent = () => {
 						search.value = "";
 						updateSearch.call(this);
-						title.textContent = guild.properties.name;
+						title.textContent = guild.currentName;
 						body.innerHTML = "";
 						for (const emojit of guild.emojis) {
 							const emojiElem = document.createElement("div");

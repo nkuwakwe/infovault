@@ -118,7 +118,7 @@ class Sticker extends SnowFlake {
 			return new Promise(() => {});
 		}
 		const title = document.createElement("h2");
-		title.textContent = guilds[0].properties.name;
+		title.textContent = guilds[0].currentName;
 		title.classList.add("emojiTitle");
 		topBar.append(title);
 
@@ -194,11 +194,11 @@ class Sticker extends SnowFlake {
 					"/" +
 					guild.properties.icon +
 					".png?size=48";
-				img.alt = "Server: " + guild.properties.name;
+				img.alt = "Server: " + guild.currentName;
 				select.appendChild(img);
 			} else {
 				const div = document.createElement("span");
-				div.textContent = guild.properties.name
+				div.textContent = guild.currentName
 					.replace(/'s /g, " ")
 					.replace(/\w+/g, (word) => word[0])
 					.replace(/\s/g, "");

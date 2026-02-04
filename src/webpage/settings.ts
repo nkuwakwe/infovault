@@ -1375,7 +1375,7 @@ class Options implements OptionsElement<void> {
 			const title = this.title.deref();
 			if (title) title.innerHTML = "";
 
-			console.log(container.children);
+			// Generate container content
 			if (this.isTop()) {
 				if (title) {
 					const elms = this.generateName();
@@ -2023,6 +2023,7 @@ class Form implements OptionsElement<object> {
 							}
 						}
 						if (json.ticket) {
+							// Handle ticket response if needed
 						}
 						if (json.errors) {
 							if (this.errors(json)) {
@@ -2043,7 +2044,10 @@ class Form implements OptionsElement<object> {
 				return;
 			}
 		}
-		console.warn("needs to be implemented");
+		// Handle successful response
+		if (json.ticket) {
+			// Handle ticket response if needed
+		}
 	}
 
 	errors(errors: {

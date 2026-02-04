@@ -1043,7 +1043,7 @@ class Localuser {
 
 		statuselm.textContent = I18n.Voice.status[status]();
 		const guildName = document.createElement("span");
-		guildName.textContent = channel.guild.properties.name;
+		guildName.textContent = channel.guild.currentName;
 		const channelName = document.createElement("span");
 		channelName.textContent = channel.name;
 		VoiceGuild.innerHTML = ``;
@@ -1552,7 +1552,7 @@ class Localuser {
 			guild.html.classList.add("serveropen");
 		}
 		this.lookingguild = guild;
-		(document.getElementById("serverName") as HTMLElement).textContent = guild.properties.name;
+		(document.getElementById("serverName") as HTMLElement).textContent = guild.currentName;
 		const banner = document.getElementById("servertd");
 		console.log(guild.banner, banner);
 		if (banner) {

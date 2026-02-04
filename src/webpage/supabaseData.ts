@@ -600,7 +600,7 @@ export async function getUserGuilds(ownerId: string): Promise<Guild[]> {
 		const { data, error } = await client
 			.from('guilds')
 			.select('*')
-			.eq('owner_id', ownerId)
+			.eq('discord_owner_id', ownerId)
 			.order('created_at', { ascending: false });
 
 		if (error) {
@@ -612,6 +612,111 @@ export async function getUserGuilds(ownerId: string): Promise<Guild[]> {
 	} catch (error) {
 		console.error('Failed to fetch user guilds:', error);
 		return [];
+	}
+}
+
+/**
+ * Get guild by Discord ID and return updated name
+ */
+export async function getGuildName(discordGuildId: string): Promise<string | null> {
+	try {
+		const client = await getSupabaseClient();
+		console.log('Looking for guild with discord_owner_id:', discordGuildId);
+		
+		// Try to find guild by discord_owner_id, but use maybeSingle() instead of single()
+		const { data, error } = await client
+			.from('guilds')
+			.select('name, discord_owner_id')
+			.eq('discord_owner_id', discordGuildId)
+			.maybeSingle(); // Use maybeSingle() to handle 0 rows
+
+		console.log('Guild query result:', { data, error });
+
+		if (error) {
+			console.error('Error fetching guild name:', error);
+			return null;
+		}
+
+		if (!data) {
+			console.log('No guild found in Supabase for discord_owner_id:', discordGuildId);
+			return null;
+		}
+
+		console.log('Found guild name:', data.name);
+		return data.name;
+	} catch (error) {
+		console.error('Failed to fetch guild name:', error);
+		return null;
+	}
+}
+
+/**
+ * Debug function to list all guilds in Supabase
+ */
+export async function debugListAllGuilds(): Promise<any[]> {
+	try {
+		const client = await getSupabaseClient();
+		const { data, error } = await client
+			.from('guilds')
+			.select('id, name, discord_owner_id')
+			.limit(10);
+
+		if (error) {
+			console.error('Error listing guilds:', error);
+			return [];
+		}
+
+		console.log('All guilds in Supabase:', data);
+		return data || [];
+	} catch (error) {
+		console.error('Failed to list guilds:', error);
+		return [];
+	}
+}
+
+/**
+ * Update guild name in Supabase
+ */
+export async function updateGuildName(discordGuildId: string, newName: string): Promise<boolean> {
+	try {
+		const client = await getSupabaseClient();
+		
+		// First find the guild by discord_owner_id
+		const { data: guildData, error: findError } = await client
+			.from('guilds')
+			.select('id')
+			.eq('discord_owner_id', discordGuildId)
+			.single();
+
+		if (findError) {
+			console.error('Error finding guild for name update:', findError);
+			return false;
+		}
+
+		if (!guildData) {
+			console.log('Guild not found in Supabase for Discord ID:', discordGuildId);
+			return false;
+		}
+
+		// Update the name
+		const { error } = await client
+			.from('guilds')
+			.update({ 
+				name: newName,
+				updated_at: new Date().toISOString()
+			})
+			.eq('id', guildData.id);
+
+		if (error) {
+			console.error('Error updating guild name:', error);
+			return false;
+		}
+
+		console.log('Guild name successfully updated in Supabase:', newName);
+		return true;
+	} catch (error) {
+		console.error('Failed to update guild name:', error);
+		return false;
 	}
 }
 
@@ -631,5 +736,8 @@ export const supabaseData = {
 	createGuild,
 	deleteGuild,
 	getGuild,
-	getUserGuilds
+	getUserGuilds,
+	getGuildName,
+	updateGuildName,
+	debugListAllGuilds
 };

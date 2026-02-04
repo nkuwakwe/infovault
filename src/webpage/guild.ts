@@ -6,7 +6,7 @@ import {Member} from "./member.js";
 import {Dialog, FormError, Options, Settings} from "./settings.js";
 import {Permissions} from "./permissions.js";
 import {SnowFlake} from "./snowflake.js";
-import {deleteGuild as deleteSupabaseGuild} from "./supabaseData.js";
+import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds} from "./supabaseData.js";
 import {
 	channeljson,
 	guildjson,
@@ -572,21 +572,26 @@ class Guild extends SnowFlake {
 		return [];
 	}
 	generateSettings() {
-		const settings = new Settings(I18n.guild.settingsFor(this.properties.name));
+		const settings = new Settings(I18n.guild.settingsFor(this.currentName));
 		const textChannels = this.channels.filter((e) => {
 			//TODO there are almost certainly more types. is Voice valid?
 			return new Set([0, 5]).has(e.type);
 		});
 		{
 			const overview = settings.addButton(I18n.guild.overview());
-			const form = overview.addForm("", (_) => {}, {
+			const form = overview.addForm("", async (formData: { name?: string }) => {
+			// If name was changed, update it in Supabase
+			if (formData.name && formData.name !== this.currentName) {
+				await this.updateGuildName(formData.name);
+			}
+		}, {
 				headers: this.headers,
 				traditionalSubmit: true,
 				fetchURL: this.info.api + "/guilds/" + this.id,
 				method: "PATCH",
 			});
 			form.addTextInput(I18n.guild["name:"](), "name", {
-				initText: this.properties.name,
+				initText: this.currentName,
 			});
 
 			form.addImageInput(I18n.guild["banner:"](), "banner", {
@@ -1383,6 +1388,9 @@ class Guild extends SnowFlake {
 		}
 		this.prevchannel = this.localuser.channelids.get(this.perminfo.prevchannel);
 		this.stickers = json.stickers.map((_) => new Sticker(_, this)) || [];
+		
+		// Sync guild name from Supabase if available
+		this.syncNameFromSupabase();
 	}
 	get perminfo() {
 		return this.localuser.perminfo.guilds[this.id];
@@ -1391,6 +1399,73 @@ class Guild extends SnowFlake {
 		this.localuser.perminfo.guilds[this.id] = e;
 	}
 	mute_config!: mute_config | null;
+	private supabaseName: string | null = null;
+	
+	/**
+ * Sync guild name from Supabase database
+ */
+async syncNameFromSupabase(): Promise<void> {
+	try {
+		// Debug: List all guilds to see what's in the database
+		await debugListAllGuilds();
+		
+		console.log('Attempting to sync guild name for owner_id:', this.properties.owner_id);
+		const supabaseName = await getGuildName(this.properties.owner_id);
+		if (supabaseName && supabaseName !== this.properties.name) {
+			this.supabaseName = supabaseName;
+			console.log(`Guild name synced from Supabase: "${this.properties.name}" -> "${supabaseName}"`);
+			
+			// Update the DOM element if it exists
+			this.updateServerNameDisplay();
+		} else if (!supabaseName) {
+			console.log('No guild found in Supabase for this owner_id');
+		} else {
+			console.log('Guild name in Supabase matches local name');
+		}
+	} catch (error) {
+		console.error('Failed to sync guild name from Supabase:', error);
+	}
+}
+
+/**
+ * Update the server name display in the DOM
+ */
+updateServerNameDisplay(): void {
+	const serverNameElement = document.getElementById("serverName") as HTMLElement;
+	if (serverNameElement && this.currentName !== serverNameElement.textContent) {
+		serverNameElement.textContent = this.currentName;
+		console.log(`Updated server name in DOM to: "${this.currentName}"`);
+	}
+}
+	
+	/**
+	 * Get the current guild name (优先使用 Supabase 中的名称)
+	 */
+	get currentName(): string {
+		return this.supabaseName || this.properties.name;
+	}
+	
+	/**
+	 * Update guild name in both local and Supabase
+	 */
+	async updateGuildName(newName: string): Promise<boolean> {
+	try {
+		// Update in Supabase first
+		const success = await updateGuildName(this.properties.owner_id, newName);
+		if (success) {
+			// Update local Supabase name cache
+			this.supabaseName = newName;
+			console.log(`Guild name updated to: "${newName}"`);
+			// Update the DOM element
+			this.updateServerNameDisplay();
+		}
+		return success;
+	} catch (error) {
+		console.error('Failed to update guild name:', error);
+		return false;
+	}
+}
+	
 	notisetting(settings: GuildOverrides) {
 		this.mute_config = this.mute_config;
 		this.message_notifications = settings.message_notifications;
@@ -1568,7 +1643,7 @@ class Guild extends SnowFlake {
 						guild.loadChannel();
 					}
 				: null;
-		const hover = new Hover(guild instanceof Guild ? guild.properties.name : "", {
+		const hover = new Hover(guild instanceof Guild ? guild.currentName : "", {
 			side: "right",
 			weak: true,
 		});
@@ -1584,7 +1659,7 @@ class Guild extends SnowFlake {
 			const div = document.createElement("div");
 			let name: string;
 			if (guild instanceof Guild) {
-				name = guild.properties.name;
+				name = guild.currentName;
 			} else {
 				name = guild.name;
 			}
@@ -1612,14 +1687,14 @@ class Guild extends SnowFlake {
 		let confirmname = "";
 
 		const full = new Dialog("");
-		full.options.addTitle(I18n.guild.confirmDelete(this.properties.name));
+		full.options.addTitle(I18n.guild.confirmDelete(this.currentName));
 		const form = full.options.addForm("", () => {}, {submitText: ""});
 		const txt = form.addTextInput(I18n.guild.serverName(), "");
 		txt.onchange = (e) => (confirmname = e);
 
 		const options = form.addOptions("", {ltr: true});
 		options.addButtonInput("", I18n.guild.yesDelete(), () => {
-			if (confirmname !== this.properties.name) {
+			if (confirmname !== this.currentName) {
 				form.handleError(new FormError(txt, I18n.guild.nameNoMatch()));
 				return;
 			}
