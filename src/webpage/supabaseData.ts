@@ -720,6 +720,48 @@ export async function updateGuildName(discordGuildId: string, newName: string): 
 	}
 }
 
+// Upload guild icon to Supabase storage
+export async function uploadGuildIcon(guildId: string, file: File): Promise<string | null> {
+	try {
+		const supabase = await getSupabaseClient();
+		const fileExtension = file.name.split('.').pop() || 'png';
+		const filePath = `guild-icons/${guildId}.${fileExtension}`;
+		
+		console.log(`Uploading guild icon for ${guildId} → guild-assets/${filePath}`);
+		
+		const { data, error } = await supabase.storage
+			.from('guild-assets')
+			.upload(filePath, file, {
+				cacheControl: '3600',
+				upsert: true,
+				contentType: file.type
+			});
+
+		if (error) {
+			console.error('Upload failed:', error.message);
+			if (error.message.includes('Unauthorized')) {
+				console.log('→ Check: bucket policies, RLS, or you used wrong key?');
+			} else if (error.message.includes('does not exist')) {
+				console.log('→ Bucket "guild-assets" does not exist yet – create it in dashboard first.');
+			}
+			return null;
+		}
+
+		console.log('Upload successful!', data);
+
+		// Get public URL
+		const { data: urlData } = supabase.storage
+			.from('guild-assets')
+			.getPublicUrl(filePath);
+
+		console.log('Public URL:', urlData.publicUrl);
+		return urlData.publicUrl;
+	} catch (error) {
+		console.error('Failed to upload guild icon:', error);
+		return null;
+	}
+}
+
 export const supabaseData = {
 	getUserInstances,
 	upsertUserInstance,
@@ -739,5 +781,6 @@ export const supabaseData = {
 	getUserGuilds,
 	getGuildName,
 	updateGuildName,
-	debugListAllGuilds
+	debugListAllGuilds,
+	uploadGuildIcon
 };

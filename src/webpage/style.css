@@ -4193,6 +4193,11 @@ fieldset input[type="radio"] {
 	opacity: 0.5;
 }
 
+.contextbutton .svgicon {
+	width: 16px;
+	height: 16px;
+}
+
 @media screen and (max-width: 600px) {
 	.searching {
 		position: absolute;

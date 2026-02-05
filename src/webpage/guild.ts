@@ -6,7 +6,7 @@ import {Member} from "./member.js";
 import {Dialog, FormError, Options, Settings} from "./settings.js";
 import {Permissions} from "./permissions.js";
 import {SnowFlake} from "./snowflake.js";
-import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds} from "./supabaseData.js";
+import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, uploadGuildIcon} from "./supabaseData.js";
 import {
 	channeljson,
 	guildjson,
@@ -193,6 +193,7 @@ class Guild extends SnowFlake {
 	stickers!: Sticker[];
 	members = new Set<Member>();
 	static contextmenu = new Contextmenu<Guild, undefined>("guild menu");
+	icon: any;
 	static setupcontextmenu() {
 		Guild.contextmenu.addButton(
 			() => I18n.guild.makeInvite(),
@@ -272,6 +273,21 @@ class Guild extends SnowFlake {
 				},
 				icon: {
 					css: "svg-settings",
+				},
+			},
+		);
+
+		Guild.contextmenu.addButton(
+			() => I18n.guild.updateIcon(),
+			function (this: Guild) {
+				this.updateGuildIcon();
+			},
+			{
+				visible: function () {
+					return this.member.hasPermission("MANAGE_GUILD");
+				},
+				icon: {
+					css: "svg-upload",
 				},
 			},
 		);
@@ -1708,6 +1724,110 @@ updateServerNameDisplay(): void {
 		});
 		full.show();
 	}
+	
+	async updateGuildIcon() {
+		const dialog = new Dialog(I18n.guild.updateIcon());
+		
+		// Create file input
+		const fileInput = document.createElement('input');
+		fileInput.type = 'file';
+		fileInput.accept = 'image/*';
+		fileInput.style.margin = '10px 0';
+		
+		// Create preview element
+		const preview = document.createElement('img');
+		preview.style.maxWidth = '200px';
+		preview.style.maxHeight = '200px';
+		preview.style.marginTop = '10px';
+		preview.style.display = 'none';
+		preview.style.borderRadius = '8px';
+		
+		// Handle file selection
+		fileInput.addEventListener('change', (event) => {
+			const file = (event.target as HTMLInputElement).files?.[0];
+			if (file) {
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					preview.src = e.target?.result as string;
+					preview.style.display = 'block';
+				};
+				reader.readAsDataURL(file);
+			}
+		});
+		
+		// Add elements to dialog
+		dialog.options.addHTMLArea(fileInput);
+		dialog.options.addHTMLArea(preview);
+		
+		// Add upload button
+		const uploadButtonInput = dialog.options.addButtonInput("", "Upload", async () => {
+			const file = fileInput.files?.[0];
+			if (!file) {
+				alert('Please select an image file');
+				return;
+			}
+			
+			// Show loading state
+			const uploadButton = uploadButtonInput.buttonHtml;
+			if (uploadButton) {
+				const originalText = uploadButton.textContent;
+				uploadButton.textContent = 'Uploading...';
+				uploadButton.disabled = true;
+			}
+			
+			try {
+				// Upload to Supabase
+				const publicUrl = await uploadGuildIcon(this.id, file);
+				
+				if (publicUrl) {
+					// Update guild icon in the API
+					const response = await fetch(this.info.api + "/guilds/" + this.id, {
+						method: "PATCH",
+						headers: this.headers,
+						body: JSON.stringify({
+							icon: publicUrl
+						})
+					});
+					
+					if (response.ok) {
+						// Update local guild icon
+						this.icon = publicUrl.split('/').pop()?.split('?')[0] || '';
+						
+						// Refresh guild icon display
+						const guildIcon = document.querySelector(`.guildicon[guild-id="${this.id}"]`) as HTMLImageElement;
+						if (guildIcon) {
+							guildIcon.src = publicUrl;
+						}
+						
+						alert('Guild icon updated successfully!');
+						dialog.hide();
+					} else {
+						throw new Error('Failed to update guild icon in API');
+					}
+				} else {
+					throw new Error('Failed to upload image to storage');
+				}
+			} catch (error) {
+				console.error('Error updating guild icon:', error);
+				alert('Failed to update guild icon. Please try again.');
+			} finally {
+				// Restore button state
+				const uploadButton = uploadButtonInput.buttonHtml;
+				if (uploadButton) {
+					uploadButton.textContent = 'Upload';
+					uploadButton.disabled = false;
+				}
+			}
+		});
+		
+		// Add cancel button
+		dialog.options.addButtonInput("", "Cancel", () => {
+			dialog.hide();
+		});
+		
+		dialog.show();
+	}
+	
 	async delete() {
 		// First delete from the existing API
 		const response = await fetch(this.info.api + "/guilds/" + this.id + "/delete", {
