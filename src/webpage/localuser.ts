@@ -791,12 +791,14 @@ class Localuser {
 						const guildy = new Guild(temp.d, this, this.user);
 						this.guilds.push(guildy);
 						this.guildids.set(guildy.id, guildy);
-						const divy = guildy.generateGuildIcon();
-						guildy.HTMLicon = divy;
-						(document.getElementById("servers") as HTMLDivElement).insertBefore(
-							divy,
-							document.getElementById("bottomseparator"),
-						);
+						// Use async database icon generation
+						guildy.generateGuildIconFromDB().then(divy => {
+							guildy.HTMLicon = divy;
+							(document.getElementById("servers") as HTMLDivElement).insertBefore(
+								divy,
+								(document.getElementById("your-servers") as HTMLDivElement).nextSibling,
+							);
+						});
 						guildy.message_notifications = guildy.properties.default_message_notifications;
 					})();
 					break;
@@ -1729,16 +1731,16 @@ class Localuser {
 							this.guildOrder.splice(this.guildOrder.indexOf(thing), 1, folder);
 							const hold = document.createElement("hr");
 							elm.after(hold);
-							hold.after(
-								this.makeFolder(
-									folder,
-									new Map([
-										[thing, elm],
-										[thingy, drag],
-									]),
-								),
-							);
-							hold.remove();
+							this.makeFolder(
+								folder,
+								new Map([
+									[thing, elm],
+									[thingy, drag],
+								]),
+							).then(folderDiv => {
+								hold.after(folderDiv);
+								hold.remove();
+							});
 
 							dia.hide();
 							res();
@@ -1793,58 +1795,38 @@ class Localuser {
 			body: JSON.stringify({guild_folders}),
 		});
 	}
-	makeGuildIcon(guild: Guild) {
-		const divy = guild.generateGuildIcon();
+	async makeGuildIcon(guild: Guild) {
+		const divy = await guild.generateGuildIconFromDB();
 		guild.HTMLicon = divy;
 		this.makeGuildDragable(divy, guild);
 		return divy;
 	}
-	makeFolder(
+	async makeFolder(
 		folder: {color?: number | null; id: number; name: string; guilds: Guild[]},
 		icons = new Map<Guild, HTMLElement | undefined>(),
 	) {
 		const folderDiv = document.createElement("div");
 		folderDiv.classList.add("folder-div");
 		const iconDiv = document.createElement("div");
-		iconDiv.classList.add("folder-icon-div");
-		const icon = document.createElement("span");
-		icon.classList.add("svg-folder");
-
-		const menu = new Contextmenu<void, void>("");
-		menu.addButton(I18n.folder.edit(), () => {
-			const dio = new Dialog(I18n.folder.edit());
-			const opt = dio.options;
-			const name = opt.addTextInput(I18n.folder.name(), () => {}, {
-				initText: folder.name,
-			});
-			const color = opt.addColorInput(I18n.folder.color(), () => {}, {
-				initColor: "#" + (folder.color || 0).toString(16),
-			});
-			opt.addButtonInput("", I18n.submit(), async () => {
-				folder.name = name.value;
-				folder.color = +("0x" + (color.value || "#0").split("#")[1]);
-				icon.style.setProperty("--folder-color", "#" + folder.color.toString(16).padStart(6, "0"));
-				if (!folder.color) icon.style.removeProperty("--folder-color");
-				await this.saveGuildOrder();
-				dio.hide();
-			});
-			dio.show();
-		});
-
-		menu.bindContextmenu(iconDiv);
+		iconDiv.classList.add("folder-icon");
 		if (folder.color !== null && folder.color !== undefined) {
-			icon.style.setProperty("--folder-color", "#" + folder.color.toString(16).padStart(6, "0"));
-			if (!folder.color) icon.style.removeProperty("--folder-color");
+			iconDiv.style.backgroundColor = "#" + folder.color.toString(16).padStart(6, "0");
 		}
+		const icon = document.createElement("div");
+		icon.textContent = folder.name[0];
 		iconDiv.append(icon);
 		const divy = document.createElement("div");
-		divy.append(
-			...folder.guilds.map((guild) => {
-				const icon = icons.get(guild);
-				if (icon) return icon;
-				return this.makeGuildIcon(guild);
-			}),
+		
+		// Generate guild icons asynchronously
+		const guildIcons = await Promise.all(
+			folder.guilds.map(async (guild) => {
+				const existingIcon = icons.get(guild);
+				if (existingIcon) return existingIcon;
+				return await this.makeGuildIcon(guild);
+			})
 		);
+		
+		divy.append(...guildIcons);
 		divy.classList.add("guilds-div-folder");
 		folderDiv.append(iconDiv, divy);
 		let height = -1;
@@ -1956,14 +1938,21 @@ class Localuser {
 			});
 		const guildOrder = [...guilds, ...folders];
 		this.guildOrder = guildOrder;
-		for (const thing of guildOrder) {
-			if (thing instanceof Guild) {
-				serverlist.append(this.makeGuildIcon(thing));
-			} else {
-				const folderDiv = this.makeFolder(thing);
-				serverlist.append(folderDiv);
+		
+		// Load guild icons asynchronously
+		const loadGuildIcons = async () => {
+			for (const thing of guildOrder) {
+				if (thing instanceof Guild) {
+					const iconDiv = await this.makeGuildIcon(thing);
+					serverlist.append(iconDiv);
+				} else {
+					const folderDiv = await this.makeFolder(thing);
+					serverlist.append(folderDiv);
+				}
 			}
-		}
+		};
+		
+		loadGuildIcons();
 
 		{
 			const br = document.createElement("hr");

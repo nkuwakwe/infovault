@@ -6,7 +6,7 @@ import {Member} from "./member.js";
 import {Dialog, FormError, Options, Settings} from "./settings.js";
 import {Permissions} from "./permissions.js";
 import {SnowFlake} from "./snowflake.js";
-import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, uploadGuildIcon, updateGuildIcon} from "./supabaseData.js";
+import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, getGuildIcon, uploadGuildIcon, updateGuildIcon} from "./supabaseData.js";
 import {
 	channeljson,
 	guildjson,
@@ -1332,9 +1332,11 @@ class Guild extends SnowFlake {
 		if (this.properties.icon !== json.icon) {
 			this.properties.icon = json.icon;
 			if (this.HTMLicon) {
-				const divy = this.generateGuildIcon();
-				this.HTMLicon.replaceWith(divy);
-				this.HTMLicon = divy;
+				const currentIcon = this.HTMLicon;
+				this.generateGuildIconFromDB().then(divy => {
+					currentIcon.replaceWith(divy);
+					this.HTMLicon = divy;
+				});
 			}
 		}
 		this.roleids = new Map();
@@ -1632,6 +1634,78 @@ updateServerNameDisplay(): void {
 		});
 	}
 	HTMLicon?: HTMLElement;
+	static async generateGuildIconFromDB(
+		guild: Guild | {id: string; name: string; info: {cdn: string}},
+		autoLink = true,
+	) {
+		const divy = document.createElement("div");
+		divy.classList.add("servernoti");
+
+		const noti = document.createElement("div");
+		noti.classList.add("unread");
+		divy.append(noti);
+		if (guild instanceof Guild && autoLink) {
+			guild.localuser.guildhtml.set(guild.id, divy);
+			guild.html = divy;
+		}
+
+		// Try to fetch icon from database first
+		let dbIconUrl: string | null = null;
+		try {
+			dbIconUrl = await getGuildIcon(guild.id);
+		} catch (error) {
+			console.warn('Failed to fetch guild icon from database:', error);
+		}
+
+		const onclick =
+			guild instanceof Guild
+				? () => {
+						guild.loadGuild();
+						guild.loadChannel();
+					}
+				: null;
+		const hover = new Hover(guild instanceof Guild ? guild.currentName : "", {
+			side: "right",
+			weak: true,
+		});
+
+		if (dbIconUrl) {
+			// Use icon from database
+			const img = createImg(dbIconUrl);
+			img.classList.add("pfp", "servericon");
+			divy.appendChild(img);
+			if (guild instanceof Guild && autoLink) {
+				img.onclick = onclick;
+				hover.addEvent(img);
+			}
+		} else {
+			// Fall back to default icon (initials)
+			const div = document.createElement("div");
+			let name: string;
+			if (guild instanceof Guild) {
+				name = guild.currentName;
+			} else {
+				name = guild.name;
+			}
+			const build = name
+				.replace(/'s /g, " ")
+				.replace(/[^\s]+/g, (word) => word[0])
+				.replace(/\s/g, "");
+			div.textContent = build;
+			div.classList.add("blankserver", "servericon");
+			divy.appendChild(div);
+			if (guild instanceof Guild) {
+				div.onclick = onclick;
+				hover.addEvent(div);
+			}
+		}
+
+		if (guild instanceof Guild && autoLink) {
+			Guild.contextmenu.bindContextmenu(divy, guild, undefined);
+		}
+		return divy;
+	}
+
 	static generateGuildIcon(
 		guild: Guild | {id: string; name: string; icon: string | null; info: {cdn: string}},
 		autoLink = true,
@@ -1698,6 +1772,10 @@ updateServerNameDisplay(): void {
 	}
 	generateGuildIcon(autoLink = true) {
 		return Guild.generateGuildIcon(this, autoLink);
+	}
+	
+	async generateGuildIconFromDB(autoLink = true) {
+		return Guild.generateGuildIconFromDB(this, autoLink);
 	}
 	confirmDelete() {
 		let confirmname = "";

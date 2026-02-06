@@ -576,7 +576,7 @@ export async function getGuild(guildId: string): Promise<Guild | null> {
 		const { data, error } = await client
 			.from('guilds')
 			.select('*')
-			.eq('id', guildId)
+			.eq('discord_guild_id', guildId)
 			.single();
 
 		if (error) {
@@ -705,7 +705,7 @@ export async function updateGuildName(discordGuildId: string, newName: string): 
 				name: newName,
 				updated_at: new Date().toISOString()
 			})
-			.eq('id', guildData.id);
+			.eq('discord_guild_id', discordGuildId);
 
 		if (error) {
 			console.error('Error updating guild name:', error);
@@ -728,7 +728,7 @@ export async function updateGuildIcon(guildId: string, iconUrl: string): Promise
 		const { error } = await supabase
 			.from('guilds')
 			.update({ icon: iconUrl })
-			.eq('id', guildId);
+			.eq('discord_guild_id', guildId);
 
 		if (error) {
 			console.error('Failed to update guild icon in database:', error);
@@ -740,6 +740,28 @@ export async function updateGuildIcon(guildId: string, iconUrl: string): Promise
 	} catch (error) {
 		console.error('Error updating guild icon in database:', error);
 		return false;
+	}
+}
+
+// Get guild icon from database
+export async function getGuildIcon(guildId: string): Promise<string | null> {
+	try {
+		const client = await getSupabaseClient();
+		const { data, error } = await client
+			.from('guilds')
+			.select('icon')
+			.eq('discord_guild_id', guildId)
+			.single();
+
+		if (error) {
+			console.error('Error fetching guild icon:', error);
+			return null;
+		}
+
+		return data?.icon || null;
+	} catch (error) {
+		console.error('Failed to fetch guild icon:', error);
+		return null;
 	}
 }
 
@@ -805,6 +827,7 @@ export const supabaseData = {
 	getGuildName,
 	updateGuildName,
 	debugListAllGuilds,
+	getGuildIcon,
 	uploadGuildIcon,
 	updateGuildIcon
 };
