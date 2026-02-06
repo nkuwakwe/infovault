@@ -6,7 +6,7 @@ import {Member} from "./member.js";
 import {Dialog, FormError, Options, Settings} from "./settings.js";
 import {Permissions} from "./permissions.js";
 import {SnowFlake} from "./snowflake.js";
-import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, uploadGuildIcon} from "./supabaseData.js";
+import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, uploadGuildIcon, updateGuildIcon} from "./supabaseData.js";
 import {
 	channeljson,
 	guildjson,
@@ -1425,8 +1425,8 @@ async syncNameFromSupabase(): Promise<void> {
 		// Debug: List all guilds to see what's in the database
 		await debugListAllGuilds();
 		
-		console.log('Attempting to sync guild name for owner_id:', this.properties.owner_id);
-		const supabaseName = await getGuildName(this.properties.owner_id);
+		console.log('Attempting to sync guild name for guild ID:', this.id);
+		const supabaseName = await getGuildName(this.id);
 		if (supabaseName && supabaseName !== this.properties.name) {
 			this.supabaseName = supabaseName;
 			console.log(`Guild name synced from Supabase: "${this.properties.name}" -> "${supabaseName}"`);
@@ -1434,7 +1434,7 @@ async syncNameFromSupabase(): Promise<void> {
 			// Update the DOM element if it exists
 			this.updateServerNameDisplay();
 		} else if (!supabaseName) {
-			console.log('No guild found in Supabase for this owner_id');
+			console.log('No guild found in Supabase for this guild ID');
 		} else {
 			console.log('Guild name in Supabase matches local name');
 		}
@@ -1793,6 +1793,12 @@ updateServerNameDisplay(): void {
 						// Update local guild icon
 						this.icon = publicUrl.split('/').pop()?.split('?')[0] || '';
 						
+						// Store icon URL in database
+						const dbUpdateSuccess = await updateGuildIcon(this.id, publicUrl);
+						if (!dbUpdateSuccess) {
+							console.warn('Guild icon updated in API but failed to store in database');
+						}
+						
 						// Refresh guild icon display
 						const guildIcon = document.querySelector(`.guildicon[guild-id="${this.id}"]`) as HTMLImageElement;
 						if (guildIcon) {
@@ -1838,8 +1844,8 @@ updateServerNameDisplay(): void {
 		// If API deletion was successful, also delete from Supabase
 		if (response.ok) {
 			try {
-				// Try to delete from Supabase using the owner's Discord ID
-				const deleted = await deleteSupabaseGuild(this.properties.owner_id);
+				// Try to delete from Supabase using the guild's Discord ID
+				const deleted = await deleteSupabaseGuild(this.id);
 				if (deleted) {
 					console.log('Guild successfully deleted from Supabase:', this.id);
 				} else {

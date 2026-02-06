@@ -73,13 +73,13 @@ export function discordIdToUuid(discordId: string): string {
 
 /**
  * Create a guild in Supabase
- * Note: Uses discord_owner_id to store Discord user ID without foreign key constraints
+ * Note: Uses discord_guild_id to store Discord guild ID for unique identification
  */
 export async function createGuild(guild: Omit<Guild, 'id'>): Promise<Guild | null> {
 	try {
 		const client = await getSupabaseClient();
 		
-		// Prepare guild data with Discord owner ID
+		// Prepare guild data with Discord guild ID
 		const guildData = {
 			name: guild.name,
 			description: guild.description || null,
@@ -87,7 +87,7 @@ export async function createGuild(guild: Omit<Guild, 'id'>): Promise<Guild | nul
 			banner: guild.banner || null,
 			splash: guild.splash || null,
 			owner_id: null, // Set to null to avoid foreign key constraint
-			discord_owner_id: guild.discord_owner_id, // Store Discord ID here
+			discord_guild_id: guild.discord_guild_id, // Store Discord guild ID here
 			region: guild.region || null,
 			preferred_locale: guild.preferred_locale || 'en-US',
 			features: guild.features || [],
@@ -179,7 +179,7 @@ export interface Guild {
 	banner?: string;
 	splash?: string;
 	owner_id?: string; // Optional UUID for Supabase auth users
-	discord_owner_id?: string; // Discord user ID as string
+	discord_guild_id?: string; // Discord guild ID as string
 	region?: string;
 	preferred_locale?: string;
 	features?: string[];
@@ -520,18 +520,18 @@ export async function setLocalSettings(userId: string, settings: Partial<LocalSe
 
 
 /**
- * Delete a guild from Supabase by Discord ID
+ * Delete a guild from Supabase by Discord guild ID
  */
 export async function deleteGuild(discordGuildId: string): Promise<boolean> {
 	try {
 		const client = await getSupabaseClient();
-		console.log('Attempting to delete guild from Supabase by Discord ID:', discordGuildId);
+		console.log('Attempting to delete guild from Supabase by Discord guild ID:', discordGuildId);
 		
-		// First find the guild by discord_owner_id
+		// First find the guild by discord_guild_id
 		const { data: guildData, error: findError } = await client
 			.from('guilds')
 			.select('id')
-			.eq('discord_owner_id', discordGuildId)
+			.eq('discord_guild_id', discordGuildId)
 			.single();
 
 		if (findError) {
@@ -540,17 +540,17 @@ export async function deleteGuild(discordGuildId: string): Promise<boolean> {
 		}
 
 		if (!guildData) {
-			console.log('Guild not found in Supabase for Discord ID:', discordGuildId);
+			console.log('Guild not found in Supabase for Discord guild ID:', discordGuildId);
 			return false; // Not an error, just doesn't exist
 		}
 
 		console.log('Found guild in Supabase:', guildData.id, 'now deleting...');
 
-		// Now delete by the Supabase UUID
+		// Now delete by the Supabase discord_guild_id
 		const { data, error } = await client
 			.from('guilds')
 			.delete()
-			.eq('id', guildData.id);
+			.eq('discord_guild_id', guildData.discord_guild_id);
 
 		console.log('Supabase delete response:', { data, error });
 
@@ -600,7 +600,7 @@ export async function getUserGuilds(ownerId: string): Promise<Guild[]> {
 		const { data, error } = await client
 			.from('guilds')
 			.select('*')
-			.eq('discord_owner_id', ownerId)
+			.eq('discord_guild_id', ownerId)
 			.order('created_at', { ascending: false });
 
 		if (error) {
@@ -621,13 +621,13 @@ export async function getUserGuilds(ownerId: string): Promise<Guild[]> {
 export async function getGuildName(discordGuildId: string): Promise<string | null> {
 	try {
 		const client = await getSupabaseClient();
-		console.log('Looking for guild with discord_owner_id:', discordGuildId);
+		console.log('Looking for guild with discord_guild_id:', discordGuildId);
 		
-		// Try to find guild by discord_owner_id, but use maybeSingle() instead of single()
+		// Try to find guild by discord_guild_id, but use maybeSingle() instead of single()
 		const { data, error } = await client
 			.from('guilds')
-			.select('name, discord_owner_id')
-			.eq('discord_owner_id', discordGuildId)
+			.select('name, discord_guild_id')
+			.eq('discord_guild_id', discordGuildId)
 			.maybeSingle(); // Use maybeSingle() to handle 0 rows
 
 		console.log('Guild query result:', { data, error });
@@ -638,7 +638,7 @@ export async function getGuildName(discordGuildId: string): Promise<string | nul
 		}
 
 		if (!data) {
-			console.log('No guild found in Supabase for discord_owner_id:', discordGuildId);
+			console.log('No guild found in Supabase for discord_guild_id:', discordGuildId);
 			return null;
 		}
 
@@ -658,7 +658,7 @@ export async function debugListAllGuilds(): Promise<any[]> {
 		const client = await getSupabaseClient();
 		const { data, error } = await client
 			.from('guilds')
-			.select('id, name, discord_owner_id')
+			.select('id, name, discord_guild_id')
 			.limit(10);
 
 		if (error) {
@@ -681,11 +681,11 @@ export async function updateGuildName(discordGuildId: string, newName: string): 
 	try {
 		const client = await getSupabaseClient();
 		
-		// First find the guild by discord_owner_id
+		// First find the guild by discord_guild_id
 		const { data: guildData, error: findError } = await client
 			.from('guilds')
 			.select('id')
-			.eq('discord_owner_id', discordGuildId)
+			.eq('discord_guild_id', discordGuildId)
 			.single();
 
 		if (findError) {
@@ -694,7 +694,7 @@ export async function updateGuildName(discordGuildId: string, newName: string): 
 		}
 
 		if (!guildData) {
-			console.log('Guild not found in Supabase for Discord ID:', discordGuildId);
+			console.log('Guild not found in Supabase for Discord guild ID:', discordGuildId);
 			return false;
 		}
 
@@ -716,6 +716,29 @@ export async function updateGuildName(discordGuildId: string, newName: string): 
 		return true;
 	} catch (error) {
 		console.error('Failed to update guild name:', error);
+		return false;
+	}
+}
+
+// Update guild icon in database
+export async function updateGuildIcon(guildId: string, iconUrl: string): Promise<boolean> {
+	try {
+		const supabase = await getSupabaseClient();
+		
+		const { error } = await supabase
+			.from('guilds')
+			.update({ icon: iconUrl })
+			.eq('id', guildId);
+
+		if (error) {
+			console.error('Failed to update guild icon in database:', error);
+			return false;
+		}
+
+		console.log('Guild icon successfully updated in database:', iconUrl);
+		return true;
+	} catch (error) {
+		console.error('Error updating guild icon in database:', error);
 		return false;
 	}
 }
@@ -782,5 +805,6 @@ export const supabaseData = {
 	getGuildName,
 	updateGuildName,
 	debugListAllGuilds,
-	uploadGuildIcon
+	uploadGuildIcon,
+	updateGuildIcon
 };
