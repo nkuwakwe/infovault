@@ -417,6 +417,8 @@ class Member extends SnowFlake {
 			memb.localuser.memberListUpdate();
 			return memb;
 		}
+		// This line should never be reached, but added for type safety
+		return undefined;
 	}
 	compare(str: string) {
 		function similar(str2: string | null | undefined) {

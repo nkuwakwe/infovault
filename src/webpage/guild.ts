@@ -6,7 +6,7 @@ import {Member} from "./member.js";
 import {Dialog, FormError, Options, Settings} from "./settings.js";
 import {Permissions} from "./permissions.js";
 import {SnowFlake} from "./snowflake.js";
-import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, getGuildIcon, uploadGuildIcon, updateGuildIcon} from "./supabaseData.js";
+import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, getGuildIcon, uploadGuildIcon, updateGuildIcon, getGuildBanner, uploadGuildBanner, updateGuildBanner} from "./supabaseData.js";
 import {
 	channeljson,
 	guildjson,
@@ -292,6 +292,21 @@ class Guild extends SnowFlake {
 			},
 		);
 
+		Guild.contextmenu.addButton(
+			() => "Update Guild Banner",
+			function (this: Guild) {
+				this.updateGuildBanner();
+			},
+			{
+				visible: function () {
+					return this.member.hasPermission("MANAGE_GUILD");
+				},
+				icon: {
+					css: "svg-upload",
+				},
+			},
+		);
+
 		//TODO make icon for this
 		Guild.contextmenu.addButton(
 			() => I18n.guild.admins(),
@@ -482,12 +497,14 @@ class Guild extends SnowFlake {
 			}
 			const members = (
 				await Promise.all(
-					[...results].map(async (_) => {
-						const json = await this.localuser.resolvemember(_, this.id);
-						return json ? Member.new(json, this) : undefined;
+					[...results].map(async (_): Promise<Member | undefined> => {
+						const json: memberjson | undefined = await this.localuser.resolvemember(_, this.id);
+						if (!json) return undefined;
+						const member: Member | undefined = await Member.new(json, this);
+						return member;
 					}),
 				)
-			).filter((_) => _ !== undefined);
+			).filter((member): member is Member => member !== undefined);
 			members.sort((a, b) => {
 				return a.name < b.name ? 1 : -1;
 			});
@@ -1777,6 +1794,32 @@ updateServerNameDisplay(): void {
 	async generateGuildIconFromDB(autoLink = true) {
 		return Guild.generateGuildIconFromDB(this, autoLink);
 	}
+	
+	async generateGuildBannerFromDB() {
+		// Try to fetch banner from database first
+		let dbBannerUrl: string | null = null;
+		try {
+			dbBannerUrl = await getGuildBanner(this.id);
+		} catch (error) {
+			console.warn('Failed to fetch guild banner from database:', error);
+		}
+
+		if (dbBannerUrl) {
+			// Use banner from database
+			const img = createImg(dbBannerUrl);
+			img.classList.add("guild-banner");
+			img.setAttribute('guild-banner-id', this.id);
+			img.style.maxWidth = '100%';
+			img.style.height = '120px';
+			img.style.objectFit = 'cover';
+			img.style.borderRadius = '8px';
+			return img;
+		} else {
+			// No banner, return null
+			return null;
+		}
+	}
+	
 	confirmDelete() {
 		let confirmname = "";
 
@@ -1910,6 +1953,123 @@ updateServerNameDisplay(): void {
 		});
 		
 		dialog.show();
+	}
+	
+	async updateGuildBanner() {
+		const dialog = new Dialog("Update Guild Banner");
+		
+		// Create file input
+		const fileInput = document.createElement('input');
+		fileInput.type = 'file';
+		fileInput.accept = 'image/*';
+		fileInput.style.margin = '10px 0';
+		
+		// Create preview element
+		const preview = document.createElement('img');
+		preview.style.maxWidth = '400px';
+		preview.style.maxHeight = '200px';
+		preview.style.marginTop = '10px';
+		preview.style.display = 'none';
+		preview.style.borderRadius = '8px';
+		
+		// Handle file selection
+		fileInput.addEventListener('change', (event) => {
+			const file = (event.target as HTMLInputElement).files?.[0];
+			if (file) {
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					preview.src = e.target?.result as string;
+					preview.style.display = 'block';
+				};
+				reader.readAsDataURL(file);
+			}
+		});
+		
+		// Add elements to dialog
+		dialog.options.addHTMLArea(fileInput);
+		dialog.options.addHTMLArea(preview);
+		
+		// Add upload button
+		const uploadButtonInput = dialog.options.addButtonInput("", "Upload", async () => {
+			const file = fileInput.files?.[0];
+			if (!file) {
+				alert('Please select an image file');
+				return;
+			}
+			
+			// Show loading state
+			const uploadButton = uploadButtonInput.buttonHtml;
+			if (uploadButton) {
+				const originalText = uploadButton.textContent;
+				uploadButton.textContent = 'Uploading...';
+				uploadButton.disabled = true;
+			}
+			
+			try {
+				// Upload to Supabase
+				const publicUrl = await uploadGuildBanner(this.id, file);
+				
+				if (publicUrl) {
+					// Update guild banner in the API
+					const response = await fetch(this.info.api + "/guilds/" + this.id, {
+						method: "PATCH",
+						headers: this.headers,
+						body: JSON.stringify({
+							banner: publicUrl
+						})
+					});
+					
+					if (response.ok) {
+						// Update local guild banner
+						this.banner = publicUrl.split('/').pop()?.split('?')[0] || '';
+						
+						// Store banner URL in database
+						const dbUpdateSuccess = await updateGuildBanner(this.id, publicUrl);
+						if (!dbUpdateSuccess) {
+							console.warn('Guild banner updated in API but failed to store in database');
+						}
+						
+						// Refresh guild banner display
+						this.refreshGuildBanner();
+						
+						alert('Guild banner updated successfully!');
+						dialog.hide();
+					} else {
+						throw new Error('Failed to update guild banner in API');
+					}
+				} else {
+					throw new Error('Failed to upload image to storage');
+				}
+			} catch (error) {
+				console.error('Error updating guild banner:', error);
+				alert('Failed to update guild banner. Please try again.');
+			} finally {
+				// Restore button state
+				const uploadButton = uploadButtonInput.buttonHtml;
+				if (uploadButton) {
+					uploadButton.textContent = 'Upload';
+					uploadButton.disabled = false;
+				}
+			}
+		});
+		
+		// Add cancel button
+		dialog.options.addButtonInput("", "Cancel", () => {
+			dialog.hide();
+		});
+		
+		dialog.show();
+	}
+	
+	refreshGuildBanner() {
+		// Find and update banner elements in the UI
+		const bannerElements = document.querySelectorAll(`[guild-banner-id="${this.id}"]`);
+		bannerElements.forEach(element => {
+			const imgElement = element as HTMLImageElement;
+			if (imgElement && this.banner) {
+				imgElement.src = this.banner;
+			}
+		});
 	}
 	
 	async delete() {

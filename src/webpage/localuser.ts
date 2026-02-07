@@ -57,6 +57,15 @@ interface CustomHTMLDivElement extends HTMLDivElement {
 
 MarkDown.emoji = Emoji;
 class Localuser {
+	pageTitle(arg0: string) {
+		(document.getElementById("channelname") as HTMLSpanElement).textContent = arg0;
+	}
+	searchMap: any;
+	async resolvemember(_: string, id: string): Promise<memberjson | undefined> {
+		const guild = this.guildids.get(_);
+		if (!guild) return undefined;
+		return guild.members.get(id)?.json;
+	}
 	badges = new Map<
 		string,
 		{id: string; description: string; icon: string; link?: string; translate?: boolean}
@@ -108,6 +117,31 @@ class Localuser {
 	set perminfo(e) {
 		this.userinfo.localuserStore = e;
 	}
+	// Missing properties
+	fetchingmembers: Map<string, boolean> = new Map();
+	noncemap: Map<string, (r: [memberjson[], string[]]) => void> = new Map();
+	noncebuild: Map<string, [memberjson[], string[], number[]]> = new Map();
+	readonly presences: Map<string, presencejson> = new Map();
+	searching = false;
+	listque = false;
+	gotoid: string | undefined;
+	gotoRes = () => {};
+	waitingmembers: Map<string, Set<string>> = new Map();
+	guildOrder: (Guild | string)[] = [];
+	curSearch: symbol | undefined;
+	urlsToRefresh: Array<[string, (value: string) => void]> = [];
+	heartbeat_interval: number = 0;
+	dragMap = new WeakMap<
+		HTMLElement,
+		| Guild
+		| {
+				guilds: Guild[];
+				color?: number | null;
+				name: string;
+				id: number;
+		  }
+	>();
+	dragged?: HTMLElement;
 	static users = getBulkUsers();
 	static async showAccountSwitcher(thisUser: Localuser) {
 		const specialUser = await new AccountSwitcher().show();
@@ -256,6 +290,15 @@ class Localuser {
 		if (this.perminfo.user.disableColors === undefined) this.perminfo.user.disableColors = true;
 		this.updateTranslations();
 	}
+	updateTranslations() {
+		const searchBox = document.getElementById("searchBox") as HTMLDivElement;
+		if (searchBox) {
+			searchBox.style.setProperty("--hint-text", JSON.stringify(I18n.search.search()));
+		}
+	}
+	refreshURL(url: string): string | PromiseLike<string> {
+		return url;
+	}
 	favorites!: Favorites;
 	readysup = false;
 	get voiceAllowed() {
@@ -331,6 +374,9 @@ class Localuser {
 				pop.show();
 			}
 		}
+	}
+	async getPosts() {
+		return {items: []};
 	}
 	guildFolders: guildFolder[] = [];
 	async gottenReady(ready: readyjson): Promise<void> {
@@ -421,6 +467,23 @@ class Localuser {
 		this.pingEndpoint();
 
 		this.generateFavicon();
+	}
+	generateFavicon() {
+		const favicon = document.querySelector("link[rel='icon']") as HTMLLinkElement;
+		if (favicon && this.user) {
+			favicon.href = this.user.getpfpsrc();
+		}
+	}
+	pingEndpoint() {
+		fetch(this.info.cdn + "/ping")
+			.then((response) => response.json())
+			.then((userInfo) => {
+				this.instancePing = userInfo.instances[this.info.wellknown].instance;
+				this.pageTitle("Loading...");
+			})
+			.catch(() => {
+				console.warn("Failed to ping endpoint");
+			});
 	}
 	inrelation = new Set<User>();
 	outoffocus(): void {
@@ -1188,7 +1251,6 @@ class Localuser {
 		}
 		return channel; // Add this line to return the 'channel' variable
 	}
-	listque = false;
 	memberListQue() {
 		if (this.listque) {
 			return;
@@ -1481,8 +1543,6 @@ class Localuser {
 		this.goToChannel(channelid, false, messageid);
 	}
 
-	gotoid: string | undefined;
-	gotoRes = () => {};
 	async goToChannel(channelid: string, addstate = true, messageid: undefined | string = undefined) {
 		const channel = this.channelids.get(channelid);
 		if (channel) {
@@ -1556,21 +1616,24 @@ class Localuser {
 		this.lookingguild = guild;
 		(document.getElementById("serverName") as HTMLElement).textContent = guild.currentName;
 		const banner = document.getElementById("servertd");
-		console.log(guild.banner, banner);
-		if (banner) {
-			if (guild.banner) {
-				//https://cdn.discordapp.com/banners/677271830838640680/fab8570de5bb51365ba8f36d7d3627ae.webp?size=240
+		console.log('Loading guild banner from database...');
+		
+		// Try to fetch banner from database first
+		guild.generateGuildBannerFromDB().then(bannerElement => {
+			if (bannerElement && bannerElement.src) {
+				// Use database banner URL with background-image like original
 				banner.style.setProperty(
 					"background-image",
-					`linear-gradient(rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0) 40%), url(${this.info.cdn}/banners/${guild.id}/${guild.banner})`,
+					`linear-gradient(rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 0) 40%), url(${bannerElement.src})`,
 				);
 				banner.classList.add("Banner");
-				//background-image:
 			} else {
+				// No banner in database, clear existing
 				banner.style.removeProperty("background-image");
 				banner.classList.remove("Banner");
 			}
-			if (guild.id !== "@me") {
+		});
+		if (guild.id !== "@me") {
 				banner.style.setProperty("cursor", `pointer`);
 				banner.onclick = (e) => {
 					e.preventDefault();
@@ -1582,7 +1645,6 @@ class Localuser {
 				banner.style.removeProperty("cursor");
 				banner.onclick = () => {};
 			}
-		}
 		//console.log(this.guildids,id)
 		const channels = document.getElementById("channels") as HTMLDivElement;
 		channels.innerHTML = "";
@@ -1590,17 +1652,6 @@ class Localuser {
 		channels.appendChild(html);
 		return guild;
 	}
-	dragMap = new WeakMap<
-		HTMLElement,
-		| Guild
-		| {
-				guilds: Guild[];
-				color?: number | null;
-				name: string;
-				id: number;
-		  }
-	>();
-	dragged?: HTMLElement;
 	makeGuildDragable(
 		elm: HTMLElement,
 		thing:
@@ -4258,7 +4309,6 @@ class Localuser {
 		}
 		box.innerHTML = "";
 	}
-	searching = false;
 	updateTranslations() {
 		const searchBox = document.getElementById("searchBox") as HTMLDivElement;
 		searchBox.style.setProperty("--hint-text", JSON.stringify(I18n.search.search()));
@@ -4420,11 +4470,6 @@ class Localuser {
 		return false;
 	}
 	//---------- resolving members code -----------
-	readonly waitingmembers = new Map<
-		string,
-		Map<string, (returns: memberjson | undefined) => void>
-	>();
-	readonly presences: Map<string, presencejson> = new Map();
 	static font?: FontFace;
 	static async loadFont() {
 		const prefs = await getPreferences();
@@ -4456,39 +4501,6 @@ class Localuser {
 			["BlobmojiCompat.ttf", "Blobmoji"],
 		] as const;
 	}
-	async resolvemember(id: string, guildid: string): Promise<memberjson | undefined> {
-		if (guildid === "@me") {
-			return undefined;
-		}
-		const guild = this.guildids.get(guildid);
-		const borked = true;
-		if (!guild || (borked && guild.member_count > 250)) {
-			try {
-				const req = await fetch(this.info.api + "/guilds/" + guildid + "/members/" + id, {
-					headers: this.headers,
-				});
-				if (req.status !== 200) {
-					return undefined;
-				}
-				return await req.json();
-			} catch {
-				return undefined;
-			}
-		}
-		let guildmap = this.waitingmembers.get(guildid);
-		if (!guildmap) {
-			guildmap = new Map();
-			this.waitingmembers.set(guildid, guildmap);
-		}
-		const promise: Promise<memberjson | undefined> = new Promise((res) => {
-			guildmap.set(id, res);
-			this.getmembers();
-		});
-		return await promise;
-	}
-	fetchingmembers: Map<string, boolean> = new Map();
-	noncemap: Map<string, (r: [memberjson[], string[]]) => void> = new Map();
-	noncebuild: Map<string, [memberjson[], string[], number[]]> = new Map();
 	searchMap = new Map<
 		string,
 		(arg: {

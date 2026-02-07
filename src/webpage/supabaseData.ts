@@ -765,6 +765,85 @@ export async function getGuildIcon(guildId: string): Promise<string | null> {
 	}
 }
 
+// Update guild banner in database
+export async function updateGuildBanner(guildId: string, bannerUrl: string): Promise<boolean> {
+	try {
+		const supabase = await getSupabaseClient();
+		
+		const { error } = await supabase
+			.from('guilds')
+			.update({ banner: bannerUrl })
+			.eq('discord_guild_id', guildId);
+
+		if (error) {
+			console.error('Failed to update guild banner in database:', error);
+			return false;
+		}
+
+		console.log('Guild banner successfully updated in database:', bannerUrl);
+		return true;
+	} catch (error) {
+		console.error('Error updating guild banner in database:', error);
+		return false;
+	}
+}
+
+// Get guild banner from database
+export async function getGuildBanner(guildId: string): Promise<string | null> {
+	try {
+		const client = await getSupabaseClient();
+		const { data, error } = await client
+			.from('guilds')
+			.select('banner')
+			.eq('discord_guild_id', guildId)
+			.single();
+
+		if (error) {
+			console.error('Error fetching guild banner:', error);
+			return null;
+		}
+
+		return data?.banner || null;
+	} catch (error) {
+		console.error('Failed to fetch guild banner:', error);
+		return null;
+	}
+}
+
+// Upload guild banner to Supabase storage
+export async function uploadGuildBanner(guildId: string, file: File): Promise<string | null> {
+	try {
+		const supabase = await getSupabaseClient();
+		const fileExtension = file.name.split('.').pop() || 'png';
+		const filePath = `guild-banners/${guildId}.${fileExtension}`;
+		
+		console.log(`Uploading guild banner for ${guildId} → guild-assets/${filePath}`);
+		
+		const { error } = await supabase.storage
+			.from('guild-assets')
+			.upload(filePath, file, {
+				cacheControl: '3600',
+				upsert: true
+			});
+
+		if (error) {
+			console.error('Error uploading guild banner:', error);
+			return null;
+		}
+
+		// Get public URL
+		const { data: { publicUrl } } = supabase.storage
+			.from('guild-assets')
+			.getPublicUrl(filePath);
+
+		console.log('Guild banner uploaded successfully:', publicUrl);
+		return publicUrl;
+	} catch (error) {
+		console.error('Failed to upload guild banner:', error);
+		return null;
+	}
+}
+
 // Upload guild icon to Supabase storage
 export async function uploadGuildIcon(guildId: string, file: File): Promise<string | null> {
 	try {
@@ -829,5 +908,8 @@ export const supabaseData = {
 	debugListAllGuilds,
 	getGuildIcon,
 	uploadGuildIcon,
-	updateGuildIcon
+	updateGuildIcon,
+	getGuildBanner,
+	uploadGuildBanner,
+	updateGuildBanner
 };
