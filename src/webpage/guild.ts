@@ -1668,10 +1668,12 @@ updateServerNameDisplay(): void {
 
 		// Try to fetch icon from database first
 		let dbIconUrl: string | null = null;
+		let dbName: string | null = null;
 		try {
 			dbIconUrl = await getGuildIcon(guild.id);
+			dbName = await getGuildName(guild.id);
 		} catch (error) {
-			console.warn('Failed to fetch guild icon from database:', error);
+			console.warn('Failed to fetch guild icon/name from database:', error);
 		}
 
 		const onclick =
@@ -1681,7 +1683,10 @@ updateServerNameDisplay(): void {
 						guild.loadChannel();
 					}
 				: null;
-		const hover = new Hover(guild instanceof Guild ? guild.currentName : "", {
+		
+		// Use database name if available, otherwise fall back to current name
+		const hoverText = dbName || (guild instanceof Guild ? guild.currentName : (guild as any).name || "");
+		const hover = new Hover(hoverText, {
 			side: "right",
 			weak: true,
 		});
