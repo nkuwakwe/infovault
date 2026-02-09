@@ -531,6 +531,8 @@ type startTypingjson = {
 	};
 };
 type channeljson = {
+	user_limit: number;
+	bitrate: number;
 	id: string;
 	rate_limit_per_user?: number;
 	owner_id?: string;

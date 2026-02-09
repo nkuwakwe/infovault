@@ -2166,7 +2166,7 @@ class Localuser {
 					icon: guildResponse.icon || fields.icon,
 					banner: guildResponse.banner || null,
 					splash: guildResponse.splash || null,
-					discord_guild_id: guildResponse.id, // Store the actual Discord guild ID
+					guild_id: guildResponse.id, // Store the actual Discord guild ID
 					region: guildResponse.region || null,
 					preferred_locale: guildResponse.preferred_locale || 'en-US',
 					features: guildResponse.features || [],

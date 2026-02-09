@@ -6,7 +6,7 @@ import {Member} from "./member.js";
 import {Dialog, FormError, Options, Settings} from "./settings.js";
 import {Permissions} from "./permissions.js";
 import {SnowFlake} from "./snowflake.js";
-import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, getGuildIcon, uploadGuildIcon, updateGuildIcon, getGuildBanner, uploadGuildBanner, updateGuildBanner} from "./supabaseData.js";
+import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, getGuildIcon, uploadGuildIcon, updateGuildIcon, getGuildBanner, uploadGuildBanner, updateGuildBanner, createChannel, getGuildChannels, createDefaultGeneralChannel, updateChannelName} from "./supabaseData.js";
 import {
 	channeljson,
 	guildjson,
@@ -1379,6 +1379,9 @@ class Guild extends SnowFlake {
 		if (json.properties) {
 			this.properties = json.properties;
 		}
+		
+		// Load channels from database
+		this.loadChannelsFromDatabase();
 		this.roles = [];
 		this.roleids = new Map();
 		this.banner = json.properties.banner;
@@ -1798,6 +1801,33 @@ updateServerNameDisplay(): void {
 	
 	async generateGuildIconFromDB(autoLink = true) {
 		return Guild.generateGuildIconFromDB(this, autoLink);
+	}
+	
+	async loadChannelsFromDatabase() {
+		try {
+			console.log('Loading channels from database for guild:', this.id);
+			const dbChannels = await getGuildChannels(this.id);
+			
+			if (dbChannels.length > 0) {
+				// Clear existing channels and load from database
+				this.channels = [];
+				this.localuser.channelids.clear();
+				
+				for (const channelData of dbChannels) {
+					const channel = new Channel(channelData, this);
+					this.channels.push(channel);
+					this.localuser.channelids.set(channel.id, channel);
+				}
+				
+				console.log(`Loaded ${dbChannels.length} channels from database`);
+			} else {
+				console.log('No channels found in database for guild:', this.id);
+				// Note: Default general channel should already be created by createGuild function
+				// We don't create it here to avoid duplication
+			}
+		} catch (error) {
+			console.error('Failed to load channels from database:', error);
+		}
 	}
 	
 	async generateGuildBannerFromDB() {
@@ -2274,6 +2304,11 @@ updateServerNameDisplay(): void {
 	updateChannel(json: channeljson) {
 		const channel = this.localuser.channelids.get(json.id);
 		if (channel) {
+			// Check if name changed and sync to database
+			if (channel.name !== json.name) {
+				this.syncChannelNameToDatabase(json.id, json.name);
+			}
+			
 			channel.updateChannel(json);
 			this.headchannels = [];
 			for (const thing of this.channels) {
@@ -2293,6 +2328,49 @@ updateServerNameDisplay(): void {
 			this.printServers();
 		}
 	}
+	
+	async syncChannelNameToDatabase(channelId: string, newName: string) {
+		try {
+			const success = await updateChannelName(channelId, newName);
+			if (success) {
+				console.log('Channel name synced to database:', newName);
+			} else {
+				console.warn('Failed to sync channel name to database');
+			}
+		} catch (error) {
+			console.error('Error syncing channel name to database:', error);
+		}
+	}
+	
+	async syncChannelNamesFromDatabase() {
+		try {
+			console.log('Syncing channel names from database for guild:', this.id);
+			const dbChannels = await getGuildChannels(this.id);
+			
+			for (const dbChannel of dbChannels) {
+				const localChannel = this.channels.find(c => c.id === dbChannel.id);
+				if (localChannel && localChannel.name !== dbChannel.name) {
+					// Update local channel name
+					localChannel.name = dbChannel.name;
+					
+					// Update UI if this channel is currently focused
+					if (this.localuser.channelfocus?.id === dbChannel.id) {
+						const channelNameElement = document.getElementById('channelname');
+						if (channelNameElement) {
+							channelNameElement.textContent = dbChannel.name;
+						}
+					}
+					
+					// Update channel list display
+					this.printServers();
+					
+					console.log(`Channel name synced from database: ${dbChannel.id} -> "${dbChannel.name}"`);
+				}
+			}
+		} catch (error) {
+			console.error('Failed to sync channel names from database:', error);
+		}
+	}
 	createChannelpac(json: channeljson) {
 		const thischannel = new Channel(json, this);
 		this.localuser.channelids.set(json.id, thischannel);
@@ -2303,7 +2381,48 @@ updateServerNameDisplay(): void {
 		}
 		this.calculateReorder();
 		this.printServers();
+		
+		// Store channel in database
+		this.storeChannelInDatabase(json);
+		
 		return thischannel;
+	}
+	
+	async storeChannelInDatabase(channelJson: channeljson) {
+		try {
+			// Transform channeljson to database format
+			const dbChannel = {
+				guild_id: this.id,
+				name: channelJson.name,
+				type: channelJson.type,
+				topic: channelJson.topic || undefined,
+				nsfw: channelJson.nsfw || false,
+				position: channelJson.position || 0,
+				bitrate: channelJson.bitrate || 64000,
+				user_limit: channelJson.user_limit || 0,
+				rate_limit_per_user: channelJson.rate_limit_per_user || 0,
+				parent_id: channelJson.parent_id || undefined,
+				owner_id: channelJson.owner_id || undefined,
+				last_message_id: channelJson.last_message_id || undefined,
+				last_pin_timestamp: channelJson.last_pin_timestamp || undefined,
+				default_auto_archive_duration: channelJson.default_auto_archive_duration || 1440,
+				flags: channelJson.flags || 0,
+				video_quality_mode: channelJson.video_quality_mode || 1,
+				icon: channelJson.icon || undefined,
+				permission_overwrites: channelJson.permission_overwrites || [],
+				retention_policy_id: channelJson.retention_policy_id || undefined,
+				default_thread_rate_limit_per_user: channelJson.default_thread_rate_limit_per_user || 0
+			};
+			
+			const storedChannel = await createChannel(dbChannel);
+			if (storedChannel) {
+				console.log('Channel stored in database:', storedChannel.id);
+			} else {
+				console.warn('Failed to store channel in database');
+			}
+		} catch (error) {
+			console.error('Error storing channel in database:', error);
+		}
 	}
 	goToChannelDelay(id: string) {
 		const channel = this.channels.find((_) => _.id == id);
