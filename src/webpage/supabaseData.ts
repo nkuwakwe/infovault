@@ -738,13 +738,13 @@ export async function deleteGuild(discordGuildId: string): Promise<boolean> {
 			return false; // Not an error, just doesn't exist
 		}
 
-		console.log('Found guild in Supabase:', guildData.id, 'now deleting...');
+		console.log('Found guild in Supabase with ID:', guildData.id, 'now deleting...');
 
-		// Now delete by the Supabase guild_id
+		// Delete by the Supabase primary key 'id' field, not guild_id
 		const { data, error } = await client
 			.from('guilds')
 			.delete()
-			.eq('guild_id', guildData.guild_id);
+			.eq('id', guildData.id);
 
 		console.log('Supabase delete response:', { data, error });
 

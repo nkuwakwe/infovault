@@ -1380,8 +1380,16 @@ class Guild extends SnowFlake {
 			this.properties = json.properties;
 		}
 		
-		// Load channels from database
-		this.loadChannelsFromDatabase();
+		// Load channels from database asynchronously after construction, only if no channels exist
+		setTimeout(() => {
+			if (this.channels.length === 0) {
+				this.loadChannelsFromDatabase().catch(error => {
+					console.error('Failed to load channels from database:', error);
+				});
+			} else {
+				console.log('Guild already has channels from API, skipping database load');
+			}
+		}, 100);
 		this.roles = [];
 		this.roleids = new Map();
 		this.banner = json.properties.banner;
@@ -1821,9 +1829,40 @@ updateServerNameDisplay(): void {
 				
 				console.log(`Loaded ${dbChannels.length} channels from database`);
 			} else {
-				console.log('No channels found in database for guild:', this.id);
-				// Note: Default general channel should already be created by createGuild function
-				// We don't create it here to avoid duplication
+				console.log('No channels found in database, using default behavior');
+				// Create default general channel if none exist
+				const defaultChannel = await createDefaultGeneralChannel(this.id);
+				if (defaultChannel) {
+					// Transform database channel data to match channeljson structure
+					const channelJson = {
+						id: defaultChannel.id,
+						name: defaultChannel.name,
+						type: defaultChannel.type,
+						guild_id: defaultChannel.guild_id,
+						topic: defaultChannel.topic || '',
+						nsfw: defaultChannel.nsfw || false,
+						position: defaultChannel.position || 0,
+						parent_id: defaultChannel.parent_id || '',
+						rate_limit_per_user: defaultChannel.rate_limit_per_user || 0,
+						last_message_id: defaultChannel.last_message_id || '',
+						last_pin_timestamp: defaultChannel.last_pin_timestamp || '',
+						default_auto_archive_duration: defaultChannel.default_auto_archive_duration || 1440,
+						flags: defaultChannel.flags || 0,
+						video_quality_mode: null,
+						created_at: defaultChannel.created_at || new Date().toISOString(),
+						icon: defaultChannel.icon || '',
+						permission_overwrites: defaultChannel.permission_overwrites || [],
+						retention_policy_id: defaultChannel.retention_policy_id || '',
+						default_thread_rate_limit_per_user: defaultChannel.default_thread_rate_limit_per_user || 0,
+						owner_id: defaultChannel.owner_id || '',
+						user_limit: defaultChannel.user_limit || 0,
+						bitrate: defaultChannel.bitrate || 64000
+					};
+					const channel = new Channel(channelJson, this);
+					this.channels.push(channel);
+					this.localuser.channelids.set(channel.id, channel);
+					console.log('Created default general channel:', defaultChannel.id);
+				}
 			}
 		} catch (error) {
 			console.error('Failed to load channels from database:', error);
