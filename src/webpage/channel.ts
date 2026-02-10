@@ -31,6 +31,7 @@ import {Direct} from "./direct.js";
 import {ProgessiveDecodeJSON} from "./utils/progessiveLoad.js";
 import {NotificationHandler} from "./notificationHandler.js";
 import {Command} from "./interactions/commands.js";
+import {getChannelName} from "./supabaseData.js";
 
 class Channel extends SnowFlake {
 	editing!: Message | null;
@@ -38,6 +39,7 @@ class Channel extends SnowFlake {
 	owner!: Guild;
 	headers!: Localuser["headers"];
 	name!: string;
+	supabaseName: string | null = null; // Store synced name from Supabase
 	parent_id?: string;
 	parent: Channel | undefined;
 	children!: Channel[];
@@ -546,6 +548,85 @@ class Channel extends SnowFlake {
 		}
 		this.setUpInfiniteScroller();
 		this.perminfo ??= {};
+		
+		// Sync channel name from Supabase if available
+		this.syncNameFromSupabase();
+	}
+	
+	/**
+	 * Get the current channel name (prioritize Supabase name)
+	 */
+	get currentName(): string {
+		return this.supabaseName || this.name;
+	}
+	
+	/**
+	 * Sync channel name from Supabase database
+	 */
+	async syncNameFromSupabase(): Promise<void> {
+		try {
+			console.log('Attempting to sync channel name for channel ID:', this.id);
+			const supabaseName = await getChannelName(this.id);
+			if (supabaseName && supabaseName !== this.name) {
+				this.supabaseName = supabaseName;
+				console.log(`Channel name synced from Supabase: "${this.name}" -> "${supabaseName}"`);
+				
+				// Update the channel list display if this channel is visible
+				this.updateChannelNameDisplay();
+			} else if (!supabaseName) {
+				console.log('No channel found in Supabase for this channel ID');
+			} else {
+				console.log('Channel name in Supabase matches local name');
+			}
+		} catch (error) {
+			console.error('Failed to sync channel name from Supabase:', error);
+		}
+	}
+	
+	/**
+	 * Update the channel name display in the DOM
+	 */
+	updateChannelNameDisplay(): void {
+		// Update channel list if this guild is currently being displayed
+		if (this.guild.localuser.lookingguild?.id === this.guild.id) {
+			this.guild.printServers();
+		}
+		
+		// Update current channel name display if this is the focused channel
+		if (this.guild.localuser.channelfocus?.id === this.id) {
+			const channelNameElement = document.getElementById("channelname");
+			if (channelNameElement) {
+				channelNameElement.textContent = this.currentName;
+				console.log(`Updated channel name in DOM to: "${this.currentName}"`);
+			}
+		}
+	}
+	
+	/**
+	 * Update channel name in both local and Supabase
+	 */
+	async updateChannelName(newName: string): Promise<boolean> {
+		try {
+			// Update in Supabase first
+			const success = await updateChannelName(this.id, newName);
+			if (success) {
+				// Update local name
+				this.name = newName;
+				this.supabaseName = newName;
+				
+				// Update display
+				this.updateChannelNameDisplay();
+				
+				console.log(`Channel name updated: "${this.currentName}"`);
+				return true;
+			} else {
+				console.error('Failed to update channel name in Supabase');
+				return false;
+			}
+		} catch (error) {
+			console.error('Error updating channel name:', error);
+			return false;
+		}
 	}
 	get perminfo() {
 		return this.guild.perminfo.channels[this.id];

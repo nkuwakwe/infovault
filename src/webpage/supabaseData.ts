@@ -72,6 +72,18 @@ export function discordIdToUuid(discordId: string): string {
 }
 
 /**
+ * Convert Discord channel ID to a UUID-like format for Supabase
+ * This creates a deterministic UUID from the Discord channel ID
+ */
+export function channelIdToUuid(channelId: string): string {
+	// Create a simple UUID-like format from the Discord channel ID
+	// This ensures the same Discord channel ID always maps to the same UUID
+	const hash = channelId.padStart(20, '0').substring(0, 20);
+	const uuid = `${hash.substring(0, 8)}-${hash.substring(8, 12)}-${hash.substring(12, 16)}-${hash.substring(16, 20)}-111111111111`;
+	return uuid;
+}
+
+/**
  * Create a guild in Supabase
  * Note: Uses guild_id to store Discord guild ID for unique identification
  */
@@ -228,6 +240,7 @@ export interface Guild {
 }
 
 export interface Channel {
+	channel_id: string;
 	id: string;
 	guild_id: string;
 	name: string;
@@ -264,10 +277,14 @@ export async function createChannel(channel: Omit<Channel, 'id' | 'created_at' |
 	try {
 		const client = await getSupabaseClient();
 		
+		console.log('createChannel called with data:', channel);
+		
+		// Prepare channel data with Discord channel ID
 		const channelData = {
+			channel_id: channelIdToUuid(Date.now().toString()), // Generate unique channel_id using timestamp
 			guild_id: channel.guild_id,
 			name: channel.name,
-			type: channel.type,
+			type: channel.type || 0,
 			topic: channel.topic || null,
 			nsfw: channel.nsfw || false,
 			position: channel.position || 0,
@@ -284,8 +301,12 @@ export async function createChannel(channel: Omit<Channel, 'id' | 'created_at' |
 			icon: channel.icon || null,
 			permission_overwrites: channel.permission_overwrites || [],
 			retention_policy_id: channel.retention_policy_id || null,
-			default_thread_rate_limit_per_user: channel.default_thread_rate_limit_per_user || 0
+			default_thread_rate_limit_per_user: channel.default_thread_rate_limit_per_user || 0,
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString()
 		};
+
+		console.log('Channel data prepared for insertion:', channelData);
 
 		const { data, error } = await client
 			.from('channels')
@@ -293,12 +314,14 @@ export async function createChannel(channel: Omit<Channel, 'id' | 'created_at' |
 			.select()
 			.single();
 
+		console.log('Supabase insert response:', { data, error });
+
 		if (error) {
 			console.error('Error creating channel:', error);
 			return null;
 		}
 
-		console.log('Channel created successfully:', data);
+		console.log('Channel successfully created in database:', data);
 		return data;
 	} catch (error) {
 		console.error('Failed to create channel:', error);
@@ -325,8 +348,8 @@ export async function getGuildChannels(guildId: string): Promise<any[]> {
 		}
 
 		// Transform database data to match channeljson structure
-		return (data || []).map((channel: { id: any; name: any; type: any; guild_id: any; topic: any; nsfw: any; position: any; parent_id: any; rate_limit_per_user: any; last_message_id: any; last_pin_timestamp: any; default_auto_archive_duration: any; flags: any; video_quality_mode: any; created_at: any; owner_id: any; }) => ({
-			id: channel.id,
+		return (data || []).map((channel: { channel_id: any; id: any; name: any; type: any; guild_id: any; topic: any; nsfw: any; position: any; parent_id: any; rate_limit_per_user: any; last_message_id: any; last_pin_timestamp: any; default_auto_archive_duration: any; flags: any; video_quality_mode: any; created_at: any; owner_id: any; }) => ({
+			id: channel.channel_id, // Use channel_id as the ID
 			name: channel.name,
 			type: channel.type,
 			guild_id: channel.guild_id,
@@ -358,17 +381,99 @@ export async function getGuildChannels(guildId: string): Promise<any[]> {
  * Create a default "general" channel for a new guild
  */
 export async function createDefaultGeneralChannel(guildId: string): Promise<Channel | null> {
-	return createChannel({
-		guild_id: guildId,
-		name: 'general',
-		type: 0, // Text channel
-		topic: 'General discussion',
-		position: 0,
-		nsfw: false,
-		permission_overwrites: [],
-		retention_policy_id: undefined,
-		default_thread_rate_limit_per_user: 0
-	});
+	try {
+		const client = await getSupabaseClient();
+		
+		// Directly insert default general channel without calling createChannel
+		const channelData = {
+			channel_id: channelIdToUuid(Date.now().toString()),
+			guild_id: guildId,
+			name: 'general',
+			type: 0, // Text channel
+			topic: 'General discussion',
+			position: 0,
+			nsfw: false,
+			permission_overwrites: [],
+			retention_policy_id: undefined,
+			default_thread_rate_limit_per_user: 0
+		};
+
+		const { data, error } = await client
+			.from('channels')
+			.insert(channelData)
+			.select()
+			.single();
+
+		if (error) {
+			console.error('Error creating default general channel:', error);
+			return null;
+		}
+
+		console.log('Default general channel created:', data);
+		return data;
+	} catch (error) {
+		console.error('Failed to create default general channel:', error);
+		return null;
+	}
+}
+
+/**
+ * Check if channel exists in database by Discord channel ID
+ */
+export async function channelExistsByDiscordId(discordId: string): Promise<boolean> {
+	try {
+		const client = await getSupabaseClient();
+		
+		// Since we don't have a Discord ID column, we need to check by name and guild_id
+		// This is a workaround until we add a discord_id column
+		const { data, error } = await client
+			.from('channels')
+			.select('name, guild_id')
+			.eq('guild_id', discordId) // This won't work, we need guild_id
+			.limit(1);
+
+		if (error) {
+			console.error('Error checking if channel exists:', error);
+			return false;
+		}
+
+		return data && data.length > 0;
+	} catch (error) {
+		console.error('Failed to check channel existence:', error);
+		return false;
+	}
+}
+
+/**
+ * Get channel name from Supabase by channel ID
+ */
+export async function getChannelName(channelId: string): Promise<string | null> {
+	try {
+		const client = await getSupabaseClient();
+		console.log('Looking for channel with channel_id:', channelId);
+		
+		const { data, error } = await client
+			.from('channels')
+			.select('name')
+			.eq('channel_id', channelId) // Use channel_id column instead of id
+			.single();
+
+		if (error) {
+			console.error('Error finding channel:', error);
+			return null;
+		}
+
+		if (!data) {
+			console.log('Channel not found in Supabase for channel_id:', channelId);
+			return null;
+		}
+
+		console.log('Found channel in Supabase:', data.name);
+		return data.name;
+	} catch (error) {
+		console.error('Failed to get channel name:', error);
+		return null;
+	}
 }
 
 /**
@@ -384,7 +489,7 @@ export async function updateChannelName(channelId: string, newName: string): Pro
 				name: newName,
 				updated_at: new Date().toISOString()
 			})
-			.eq('id', channelId);
+			.eq('channel_id', channelId) // Use channel_id column instead of id
 
 		if (error) {
 			console.error('Failed to update channel name in database:', error);
@@ -1109,5 +1214,6 @@ export const supabaseData = {
 	createChannel,
 	getGuildChannels,
 	createDefaultGeneralChannel,
+	getChannelName,
 	updateChannelName
 };

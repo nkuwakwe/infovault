@@ -6,7 +6,7 @@ import {Member} from "./member.js";
 import {Dialog, FormError, Options, Settings} from "./settings.js";
 import {Permissions} from "./permissions.js";
 import {SnowFlake} from "./snowflake.js";
-import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, getGuildIcon, uploadGuildIcon, updateGuildIcon, getGuildBanner, uploadGuildBanner, updateGuildBanner, createChannel, getGuildChannels, createDefaultGeneralChannel, updateChannelName} from "./supabaseData.js";
+import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, getGuildIcon, uploadGuildIcon, updateGuildIcon, getGuildBanner, uploadGuildBanner, updateGuildBanner, createChannel, getGuildChannels, createDefaultGeneralChannel, updateChannelName, channelIdToUuid, channelExistsByDiscordId} from "./supabaseData.js";
 import {
 	channeljson,
 	guildjson,
@@ -1811,7 +1811,15 @@ updateServerNameDisplay(): void {
 		return Guild.generateGuildIconFromDB(this, autoLink);
 	}
 	
+	private channelsLoaded = false;
+	
 	async loadChannelsFromDatabase() {
+		// Prevent multiple loading attempts
+		if (this.channelsLoaded) {
+			console.log('Channels already loaded, skipping database load');
+			return;
+		}
+		
 		try {
 			console.log('Loading channels from database for guild:', this.id);
 			const dbChannels = await getGuildChannels(this.id);
@@ -1825,9 +1833,17 @@ updateServerNameDisplay(): void {
 					const channel = new Channel(channelData, this);
 					this.channels.push(channel);
 					this.localuser.channelids.set(channel.id, channel);
+					
+					// Sync channel name from database after creation
+					setTimeout(() => {
+						channel.syncNameFromSupabase().catch(error => {
+							console.error('Failed to sync channel name from database:', error);
+						});
+					}, 50);
 				}
 				
 				console.log(`Loaded ${dbChannels.length} channels from database`);
+				this.channelsLoaded = true; // Mark as loaded
 			} else {
 				console.log('No channels found in database, using default behavior');
 				// Create default general channel if none exist
@@ -1863,6 +1879,7 @@ updateServerNameDisplay(): void {
 					this.localuser.channelids.set(channel.id, channel);
 					console.log('Created default general channel:', defaultChannel.id);
 				}
+				this.channelsLoaded = true; // Mark as loaded
 			}
 		} catch (error) {
 			console.error('Failed to load channels from database:', error);
@@ -2343,9 +2360,9 @@ updateServerNameDisplay(): void {
 	updateChannel(json: channeljson) {
 		const channel = this.localuser.channelids.get(json.id);
 		if (channel) {
-			// Check if name changed and sync to database
+			// Check if name changed and sync to database using channel's own method
 			if (channel.name !== json.name) {
-				this.syncChannelNameToDatabase(json.id, json.name);
+				channel.updateChannelName(json.name);
 			}
 			
 			channel.updateChannel(json);
@@ -2365,6 +2382,34 @@ updateServerNameDisplay(): void {
 			}
 			this.channels = this.channels.sort((a, b) => a.position - b.position);
 			this.printServers();
+		}
+	}
+	
+	async syncAllChannelNamesFromDatabase() {
+		try {
+			console.log('Syncing all channel names from database for guild:', this.id);
+			
+			// Get fresh channel data from database
+			const dbChannels = await getGuildChannels(this.id);
+			
+			for (const dbChannel of dbChannels) {
+				const localChannel = this.channels.find(c => c.id === dbChannel.id);
+				if (localChannel && localChannel.name !== dbChannel.name) {
+					// Update the channel's supabase name
+					localChannel.supabaseName = dbChannel.name;
+					
+					// Update display
+					localChannel.updateChannelNameDisplay();
+					
+					console.log(`Channel name synced from database: ${dbChannel.id} -> "${dbChannel.name}"`);
+				}
+			}
+			
+			// Refresh the entire channel list display
+			this.printServers();
+			
+		} catch (error) {
+			console.error('Failed to sync all channel names from database:', error);
 		}
 	}
 	
@@ -2414,23 +2459,28 @@ updateServerNameDisplay(): void {
 		const thischannel = new Channel(json, this);
 		this.localuser.channelids.set(json.id, thischannel);
 		this.channels.push(thischannel);
-		thischannel.resolveparent(this);
-		if (!thischannel.parent) {
-			this.headchannels.push(thischannel);
-		}
-		this.calculateReorder();
 		this.printServers();
 		
-		// Store channel in database
-		this.storeChannelInDatabase(json);
+		// Don't store in database here - it's already stored by createChannel()
+		// this.storeChannelInDatabase(json);
 		
 		return thischannel;
 	}
 	
 	async storeChannelInDatabase(channelJson: channeljson) {
 		try {
+			console.log('Attempting to store channel in database:', channelJson.name);
+			
+			// Check if channel already exists in database to prevent duplicates
+			const channelExists = await channelExistsByDiscordId(channelJson.id);
+			if (channelExists) {
+				console.log('Channel with Discord ID already exists in database, skipping storage:', channelJson.name);
+				return;
+			}
+			
 			// Transform channeljson to database format
 			const dbChannel = {
+				channel_id: channelIdToUuid(Date.now().toString()), // Generate unique channel_id
 				guild_id: this.id,
 				name: channelJson.name,
 				type: channelJson.type,
@@ -2453,11 +2503,14 @@ updateServerNameDisplay(): void {
 				default_thread_rate_limit_per_user: channelJson.default_thread_rate_limit_per_user || 0
 			};
 			
+			console.log('Channel data prepared for database:', dbChannel);
+			
 			const storedChannel = await createChannel(dbChannel);
 			if (storedChannel) {
-				console.log('Channel stored in database:', storedChannel.id);
+				console.log('Channel successfully stored in database:', storedChannel);
+				console.log('Channel ID in database:', storedChannel.channel_id);
 			} else {
-				console.warn('Failed to store channel in database');
+				console.error('Failed to store channel in database - createChannel returned null');
 			}
 		} catch (error) {
 			console.error('Error storing channel in database:', error);
@@ -2525,13 +2578,26 @@ updateServerNameDisplay(): void {
 		this.printServers();
 	}
 	createChannel(name: string, type: number) {
+		console.log('Creating channel:', name, 'type:', type);
+		
 		fetch(this.info.api + "/guilds/" + this.id + "/channels", {
 			method: "POST",
 			headers: this.headers,
 			body: JSON.stringify({name, type}),
 		})
 			.then((_) => _.json())
-			.then((_) => this.goToChannelDelay(_.id));
+			.then((channelJson) => {
+				console.log('Channel created via API:', channelJson);
+				
+				// Store the channel in database
+				this.storeChannelInDatabase(channelJson);
+				
+				// Navigate to the channel
+				this.goToChannelDelay(channelJson.id);
+			})
+			.catch((error) => {
+				console.error('Error creating channel:', error);
+			});
 	}
 	async createRole(name: string) {
 		const fetched = await fetch(this.info.api + "/guilds/" + this.id + "roles", {
