@@ -690,7 +690,7 @@ class MarkDown {
 							case "#":
 								const channel = this.localuser.channelids.get(id);
 								if (channel) {
-									mention.textContent = `#${channel.name}`;
+									mention.textContent = `#${channel.currentName}`;
 									if (!keep && !stdsize) {
 										mention.onclick = (_) => {
 											if (!this.localuser) return;
@@ -850,21 +850,17 @@ class MarkDown {
 
 				if (found && Emoji) {
 					const buildjoin = build.join("");
-					const parts = buildjoin.match(/^<(a)?:\w+:(\d{10,30})>$/);
-					if (parts && parts[2]) {
-						appendcurrent();
-						i = j;
-						const isEmojiOnly = txt.join("").trim() === buildjoin.trim() && !stdsize;
-						const owner = this.channel ? this.channel.guild : this.localuser;
-						if (!owner) continue;
-						const emoji = new Emoji(
-							{name: buildjoin, id: parts[2], animated: Boolean(parts[1])},
-							owner,
-						);
-						span.appendChild(emoji.getHTML(isEmojiOnly, !keep));
+					const parts = buildjoin.match(/^<(a)?:\w+:(\d{10,30})>$/) as RegExpMatchArray;
+					const emoji = new Emoji(
+						{name: buildjoin, id: parts[2], animated: Boolean(parts[1])},
+						this.channel.guild,
+					);
+					appendcurrent();
+					i = j;
+					const isEmojiOnly = txt.join("").trim() === buildjoin.trim() && !stdsize;
+					span.appendChild(emoji.getHTML(isEmojiOnly, !keep));
 
-						continue;
-					}
+					continue;
 				}
 			}
 
@@ -911,7 +907,7 @@ class MarkDown {
 							i = j;
 							if (!stdsize) {
 								MarkDown.safeLink(linkElem, parts[2]);
-								linkElem.append(this.markdown(parts[1], {keep, stdsize}));
+								linkElem.append(this.markdown(parts[1]));
 								linkElem.target = "_blank";
 								linkElem.rel = "noopener noreferrer";
 							}
@@ -1152,9 +1148,9 @@ class MarkDown {
 						channel.getHTML(true, true, message);
 					};
 					if (message) {
-						return I18n.messageLink(channel.name);
+						return I18n.messageLink(channel.currentName);
 					} else {
-						return I18n.channelLink(channel.name);
+						return I18n.channelLink(channel.currentName);
 					}
 				}
 			}

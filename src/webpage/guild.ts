@@ -73,7 +73,7 @@ export async function makeInviteMenu(inviteMenu: Options, guild: Guild, url: str
 
 			const channel = guild.channels.find((_) => _.id == invite.channel_id);
 			if (channel) {
-				opt.addText(I18n.invite.forChannel(channel.name));
+				opt.addText(I18n.invite.forChannel(channel.currentName));
 			}
 
 			opt.addText(I18n.invite.createdAt(new Date(invite.created_at).toLocaleDateString(I18n.lang)));
@@ -1064,7 +1064,7 @@ class Guild extends SnowFlake {
 			form.addSelect(
 				I18n.channel.name(),
 				"channel_id",
-				channels.map((_) => _.name),
+				channels.map((_) => _.currentName),
 				{
 					defaultIndex: channels.findIndex((_) => _.id == cur.channel_id),
 				},
@@ -1187,7 +1187,7 @@ class Guild extends SnowFlake {
 			com.addSelect(
 				I18n.guild.ruleId(),
 				"rules_channel_id",
-				[...textChannels.map((_) => _.name), "none"],
+				[...textChannels.map((_) => _.currentName), "none"],
 				{
 					defaultIndex,
 				},
@@ -1199,7 +1199,7 @@ class Guild extends SnowFlake {
 			com.addSelect(
 				I18n.guild["systemSelect:"](),
 				"system_channel_id",
-				["No system messages", ...textChannels.map((e) => e.name)],
+				["No system messages", ...textChannels.map((e) => e.currentName)],
 				{defaultIndex: sysmap.indexOf(this.properties.system_channel_id)},
 				sysmap,
 			);
@@ -1259,11 +1259,11 @@ class Guild extends SnowFlake {
 			.addSelect(
 				I18n.invite["channel:"](),
 				() => {},
-				valid.map((e) => e.name),
+				valid.map((e) => e.currentName),
 			)
 			.watchForChange((e) => {
 				channel = valid[e];
-				text2.setText(I18n.invite.subtext(channel.name, this.properties.name));
+				text2.setText(I18n.invite.subtext(channel.currentName, this.properties.name));
 			});
 
 		options.addSelect(
@@ -2480,26 +2480,28 @@ updateServerNameDisplay(): void {
 			
 			// Transform channeljson to database format
 			const dbChannel = {
+				id: channelJson.id, // Discord channel ID (required by channeljson)
+				created_at: new Date().toISOString(), // Current timestamp (required by channeljson)
 				channel_id: channelIdToUuid(Date.now().toString()), // Generate unique channel_id
 				guild_id: this.id,
 				name: channelJson.name,
 				type: channelJson.type,
-				topic: channelJson.topic || undefined,
+				topic: channelJson.topic || "",
 				nsfw: channelJson.nsfw || false,
 				position: channelJson.position || 0,
 				bitrate: channelJson.bitrate || 64000,
 				user_limit: channelJson.user_limit || 0,
 				rate_limit_per_user: channelJson.rate_limit_per_user || 0,
-				parent_id: channelJson.parent_id || undefined,
+				parent_id: channelJson.parent_id || "",
 				owner_id: channelJson.owner_id || undefined,
-				last_message_id: channelJson.last_message_id || undefined,
-				last_pin_timestamp: channelJson.last_pin_timestamp || undefined,
+				last_message_id: channelJson.last_message_id || "",
+				last_pin_timestamp: channelJson.last_pin_timestamp || "",
 				default_auto_archive_duration: channelJson.default_auto_archive_duration || 1440,
 				flags: channelJson.flags || 0,
-				video_quality_mode: channelJson.video_quality_mode || 1,
-				icon: channelJson.icon || undefined,
+				video_quality_mode: channelJson.video_quality_mode || null,
+				icon: channelJson.icon || "",
 				permission_overwrites: channelJson.permission_overwrites || [],
-				retention_policy_id: channelJson.retention_policy_id || undefined,
+				retention_policy_id: channelJson.retention_policy_id || "",
 				default_thread_rate_limit_per_user: channelJson.default_thread_rate_limit_per_user || 0
 			};
 			

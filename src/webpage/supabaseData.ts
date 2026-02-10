@@ -1,6 +1,8 @@
 // Supabase data operations
 // This module handles all database operations for user instances and preferences
 
+import { channeljson } from './jsontypes';
+
 // Get Supabase URL and keys from environment variables
 const SUPABASE_URL = typeof process !== 'undefined' && process.env?.SUPABASE_URL || 'https://vkgkqcsjgiyadivuxosp.supabase.co';
 const SUPABASE_ANON_KEY = typeof process !== 'undefined' ? process.env?.SUPABASE_ANON_KEY : undefined;
@@ -273,7 +275,7 @@ export interface Channel {
 /**
  * Create a channel in Supabase
  */
-export async function createChannel(channel: Omit<Channel, 'id' | 'created_at' | 'updated_at'>): Promise<Channel | null> {
+export async function createChannel(channel: channeljson & { guild_id: string }): Promise<Channel | null> {
 	try {
 		const client = await getSupabaseClient();
 		
@@ -281,7 +283,7 @@ export async function createChannel(channel: Omit<Channel, 'id' | 'created_at' |
 		
 		// Prepare channel data with Discord channel ID
 		const channelData = {
-			channel_id: channelIdToUuid(Date.now().toString()), // Generate unique channel_id using timestamp
+			channel_id: channel.id, // Store Discord channel ID
 			guild_id: channel.guild_id,
 			name: channel.name,
 			type: channel.type || 0,
@@ -455,7 +457,7 @@ export async function getChannelName(channelId: string): Promise<string | null> 
 		const { data, error } = await client
 			.from('channels')
 			.select('name')
-			.eq('channel_id', channelId) // Use channel_id column instead of id
+			.eq('channel_id', channelId) // Use Discord channel_id column
 			.single();
 
 		if (error) {
@@ -489,7 +491,7 @@ export async function updateChannelName(channelId: string, newName: string): Pro
 				name: newName,
 				updated_at: new Date().toISOString()
 			})
-			.eq('channel_id', channelId) // Use channel_id column instead of id
+			.eq('channel_id', channelId) // Use Discord channel_id column
 
 		if (error) {
 			console.error('Failed to update channel name in database:', error);

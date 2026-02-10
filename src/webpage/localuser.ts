@@ -1110,7 +1110,7 @@ class Localuser {
 		const guildName = document.createElement("span");
 		guildName.textContent = channel.guild.currentName;
 		const channelName = document.createElement("span");
-		channelName.textContent = channel.name;
+		channelName.textContent = channel.currentName;
 		VoiceGuild.innerHTML = ``;
 		VoiceGuild.append(guildName, " / ", channelName);
 		VoiceGuild.onclick = () => {
@@ -4395,7 +4395,7 @@ class Localuser {
 						if (channel !== message.channel) {
 							channel = message.channel;
 							const h3 = document.createElement("h3");
-							h3.textContent = channel.name;
+							h3.textContent = channel.currentName;
 							h3.classList.add("channelSTitle");
 							sideDiv.append(h3);
 							htmls.push(h3);

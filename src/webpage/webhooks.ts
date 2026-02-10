@@ -43,7 +43,7 @@ async function webhookMenu(
 				const select = options.addSelect(
 					I18n.webhooks.channel(),
 					() => {},
-					moveChannels.map((_) => _.name),
+					moveChannels.map((_) => _.currentName),
 					{
 						defaultIndex: 0,
 					},
@@ -132,7 +132,7 @@ async function webhookMenu(
 			form.addSelect(
 				I18n.webhooks.channel(),
 				"channel_id",
-				moveChannels.map((_) => _.name),
+				moveChannels.map((_) => _.currentName),
 				{
 					defaultIndex: moveChannels.findIndex((_) => _.id === hook.channel_id),
 				},

@@ -65,7 +65,7 @@ export class NotificationHandler {
 		sup[0]++;
 		clearInterval(cancel);
 		new Notification(message.channel.notititle(message), {
-			body: I18n.notiClump(count + "", message.channel.name),
+			body: I18n.notiClump(count + "", message.channel.currentName),
 			icon: this.makeIcon(message),
 			silent: true,
 			tag: message.channel.id + rand,

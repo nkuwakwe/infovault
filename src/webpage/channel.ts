@@ -31,7 +31,7 @@ import {Direct} from "./direct.js";
 import {ProgessiveDecodeJSON} from "./utils/progessiveLoad.js";
 import {NotificationHandler} from "./notificationHandler.js";
 import {Command} from "./interactions/commands.js";
-import {getChannelName} from "./supabaseData.js";
+import {getChannelName, updateChannelName} from "./supabaseData.js";
 
 class Channel extends SnowFlake {
 	editing!: Message | null;
@@ -331,7 +331,7 @@ class Channel extends SnowFlake {
 	}
 	generateSettings() {
 		this.sortPerms();
-		const settings = new Settings(I18n.channel.settingsFor(this.name));
+		const settings = new Settings(I18n.channel.settingsFor(this.currentName));
 		{
 			const gensettings = settings.addButton(I18n.channel.settings());
 			const form = gensettings.addForm("", () => {}, {
@@ -598,6 +598,12 @@ class Channel extends SnowFlake {
 			if (channelNameElement) {
 				channelNameElement.textContent = this.currentName;
 				console.log(`Updated channel name in DOM to: "${this.currentName}"`);
+			}
+			
+			// Update placeholder if this channel is focused
+			const typebox = document.getElementById("typebox") as CustomHTMLDivElement;
+			if (typebox && (typebox as any).showPlaceholder) {
+				(typebox as any).showPlaceholder();
 			}
 		}
 	}
@@ -931,7 +937,7 @@ class Channel extends SnowFlake {
 
 			const myhtml = document.createElement("p2");
 			myhtml.classList.add("ellipsis");
-			myhtml.textContent = this.name;
+			myhtml.textContent = this.currentName;
 			this.nameSpan = new WeakRef(myhtml);
 			decdiv.appendChild(myhtml);
 			caps.appendChild(decdiv);
@@ -1010,7 +1016,7 @@ class Channel extends SnowFlake {
 
 			const myhtml = document.createElement("span");
 			myhtml.classList.add("ellipsis");
-			myhtml.textContent = this.name;
+			myhtml.textContent = this.currentName;
 			this.nameSpan = new WeakRef(myhtml);
 			button.appendChild(myhtml);
 			button.onclick = (_) => {
@@ -1904,7 +1910,7 @@ class Channel extends SnowFlake {
 			
 			// Channel name
 			const nameSpan = document.createElement("span");
-			nameSpan.textContent = this.name;
+			nameSpan.textContent = this.currentName;
 			nameSpan.style.fontFamily = '"Poppins-Medium", Helvetica';
 			nameSpan.style.color = "#C3C3C3";
 			placeholderContainer.appendChild(nameSpan);
@@ -2566,7 +2572,7 @@ class Channel extends SnowFlake {
 		this.slowmode();
 
 		const span = this.nameSpan.deref();
-		if (span) span.textContent = this.name;
+		if (span) span.textContent = this.currentName;
 		const parent = this.localuser.channelids.get(json.parent_id);
 		if (parent) {
 			this.parent = parent;
