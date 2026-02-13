@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Supabase Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #5865F2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 10px 10px 0;
+        }
+        button:hover {
+            background-color: #4752C4;
+        }
+        #output {
+            background-color: #2e2e2e;
+            color: #fff;
+            padding: 20px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Simple Supabase Connection Test</h1>
+        
+        <div class="test-info">
+            <h3>ℹ️ Quick Test</h3>
+            <p>This page tests basic Supabase connectivity without complex module imports. It directly loads the Supabase client and tests database operations.</p>
+        </div>
+
+        <button id="testConnection">Test Supabase Connection</button>
+        <button id="testMessageOps">Test Message Operations</button>
+        <button id="clearOutput">Clear Output</button>
+        
+        <div id="status"></div>
+        
+        <div class="test-section">
+            <h2>📊 Output</h2>
+            <div id="output">Click "Test Supabase Connection" to begin...</div>
+        </div>
+    </div>
+
+    <!-- Load Supabase SDK from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        // Configuration - update these with your actual values
+        const SUPABASE_URL = 'https://vkgkqcsjgiyadivuxosp.supabase.co';
+        const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZ2txY3NqZ2l5YWRpdnV4b3NwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODkwODIxNywiZXhwIjoyMDg0NDg0MjE3fQ.nK2z8ekYbvLTPAe7XlizCdyaM-gQXxSaY9rT7m18wtM';
+        
+        // Test configuration - use UUIDs for Supabase
+        const TEST_CHANNEL_ID = 'test-channel-123'; // This stays as string (channel_id is text)
+        const TEST_GUILD_ID = 'test-guild-123'; // This stays as string (guild_id is text)
+        const TEST_USER_ID = '00000000-0000-0000-0000-000000000001'; // UUID format for author_id
+
+        // Initialize Supabase client with service role key (bypasses RLS)
+        const { createClient } = window.supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+        // DOM elements
+        const output = document.getElementById('output');
+        const status = document.getElementById('status');
+        const testConnectionBtn = document.getElementById('testConnection');
+        const testMessageOpsBtn = document.getElementById('testMessageOps');
+        const clearOutputBtn = document.getElementById('clearOutput');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            output.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function showStatus(message, type) {
+            status.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function clearOutput() {
+            output.textContent = '';
+            status.innerHTML = '';
+        }
+
+        async function testConnection() {
+            showStatus('Testing Supabase connection...', 'info');
+            testConnectionBtn.disabled = true;
+
+            try {
+                log('🔗 Testing basic connection to Supabase...');
+                
+                // Test basic connectivity by checking messages table
+                const { data, error } = await supabaseClient
+                    .from('messages')
+                    .select('count')
+                    .limit(1);
+
+                if (error) {
+                    throw new Error(`Database error: ${error.message}`);
+                }
+
+                log('✅ Connection successful! Supabase is reachable.', 'success');
+                showStatus('✅ Connection successful! You can now test message operations.', 'success');
+                testMessageOpsBtn.disabled = false;
+
+            } catch (error) {
+                log(`❌ Connection failed: ${error.message}`, 'error');
+                showStatus(`❌ Connection failed: ${error.message}`, 'error');
+                testMessageOpsBtn.disabled = true;
+            } finally {
+                testConnectionBtn.disabled = false;
+            }
+        }
+
+        async function createTestGuild() {
+            try {
+                log('🏰 Creating test guild...');
+                
+                // Create a test guild in guilds table
+                const { data: testGuild, error: guildError } = await supabaseClient
+                    .from('guilds')
+                    .insert({
+                        id: '00000000-0000-0000-0000-000000000003', // UUID for guild primary key
+                        guild_id: TEST_GUILD_ID, // Text guild_id for Discord compatibility
+                        name: 'Test Guild',
+                        created_at: new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+
+                if (guildError) {
+                    throw new Error(`Failed to create test guild: ${guildError.message}`);
+                }
+
+                log(`✅ Test guild created: ${testGuild.guild_id}`, 'success');
+                return testGuild.guild_id;
+            } catch (error) {
+                log(`⚠️  Could not create test guild: ${error.message}`, 'error');
+                log('💡 Continuing with test guild ID anyway...', 'info');
+                return TEST_GUILD_ID;
+            }
+        }
+
+        async function createTestChannel() {
+            try {
+                log('📺 Creating test channel...');
+                
+                // Create a test channel in channels table
+                const { data: testChannel, error: channelError } = await supabaseClient
+                    .from('channels')
+                    .insert({
+                        id: '00000000-0000-0000-0000-000000000002', // UUID for channel primary key
+                        channel_id: TEST_CHANNEL_ID, // Text channel_id for Discord compatibility
+                        guild_id: TEST_GUILD_ID,
+                        name: 'Test Channel',
+                        type: 0, // Text channel
+                        created_at: new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+
+                if (channelError) {
+                    throw new Error(`Failed to create test channel: ${channelError.message}`);
+                }
+
+                log(`✅ Test channel created: ${testChannel.channel_id}`, 'success');
+                return testChannel.channel_id;
+            } catch (error) {
+                log(`⚠️  Could not create test channel: ${error.message}`, 'error');
+                log('💡 Continuing with test channel ID anyway...', 'info');
+                return TEST_CHANNEL_ID;
+            }
+        }
+
+        async function createTestUser() {
+            try {
+                log('👤 Creating test user...');
+                
+                // Create a test user in auth.users table
+                const { data: authUser, error: authError } = await supabaseClient.auth.admin.createUser({
+                    email: 'test@example.com',
+                    password: 'testpassword123',
+                    user_metadata: {
+                        name: 'Test User'
+                    }
+                });
+
+                if (authError) {
+                    // If auth admin fails, try direct insert
+                    const { data: directUser, error: directError } = await supabaseClient
+                        .from('users')
+                        .insert({
+                            id: TEST_USER_ID,
+                            email: 'test@example.com',
+                            created_at: new Date().toISOString()
+                        })
+                        .select()
+                        .single();
+
+                    if (directError) {
+                        throw new Error(`Failed to create test user: ${directError.message}`);
+                    }
+
+                    log(`✅ Test user created directly: ${directUser.id}`, 'success');
+                    return directUser.id;
+                }
+
+                log(`✅ Test user created via auth: ${authUser.user.id}`, 'success');
+                return authUser.user.id;
+            } catch (error) {
+                log(`⚠️  Could not create test user: ${error.message}`, 'error');
+                log('💡 Continuing with test UUID anyway...', 'info');
+                return TEST_USER_ID;
+            }
+        }
+
+        async function createTestGuild() {
+            try {
+                log('🏰 Creating test guild...');
+                
+                // Create a test guild in guilds table
+                const { data: testGuild, error: guildError } = await supabaseClient
+                    .from('guilds')
+                    .insert({
+                        id: '00000000-0000-0000-0000-000000000003', // UUID for guild primary key
+                        guild_id: TEST_GUILD_ID, // Text guild_id for Discord compatibility
+                        name: 'Test Guild',
+                        created_at: new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+
+                if (guildError) {
+                    throw new Error(`Failed to create test guild: ${guildError.message}`);
+                }
+
+                log(`✅ Test guild created: ${testGuild.guild_id}`, 'success');
+                return testGuild.guild_id;
+            } catch (error) {
+                log(`⚠️  Could not create test guild: ${error.message}`, 'error');
+                log('💡 Continuing with test guild ID anyway...', 'info');
+                return TEST_GUILD_ID;
+            }
+        }
+
+        async function createTestChannel() {
+            try {
+                log('📺 Creating test channel...');
+                
+                // Create a test channel in channels table
+                const { data: testChannel, error: channelError } = await supabaseClient
+                    .from('channels')
+                    .insert({
+                        id: '00000000-0000-0000-0000-000000000002', // UUID for channel primary key
+                        channel_id: TEST_CHANNEL_ID, // Text channel_id for Discord compatibility
+                        guild_id: TEST_GUILD_ID,
+                        name: 'Test Channel',
+                        type: 0, // Text channel
+                        created_at: new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+
+                if (channelError) {
+                    throw new Error(`Failed to create test channel: ${channelError.message}`);
+                }
+
+                log(`✅ Test channel created: ${testChannel.channel_id}`, 'success');
+                return testChannel.channel_id;
+            } catch (error) {
+                log(`⚠️  Could not create test channel: ${error.message}`, 'error');
+                log('💡 Continuing with test channel ID anyway...', 'info');
+                return TEST_CHANNEL_ID;
+            }
+        }
+
+        async function testMessageOperations() {
+            showStatus('Testing message operations...', 'info');
+            testMessageOpsBtn.disabled = true;
+
+            try {
+                log('\n🧪 Starting message operations test...');
+                log('================================================');
+
+                // Test 0: Create test data hierarchy first
+                const testGuildId = await createTestGuild();
+                const testChannelId = await createTestChannel();
+                const testUserId = await createTestUser();
+
+                // Test 1: Create message
+                log('\n📝 Test 1: Creating message...');
+                const messageData = {
+                    message_id: `test-msg-${Date.now()}`,
+                    channel_id: testChannelId, // Use created test channel ID
+                    guild_id: testGuildId, // Use created test guild ID
+                    author_id: testUserId, // Use created test user ID
+                    content: 'Test message from simple test page',
+                    timestamp: new Date().toISOString()
+                };
+
+                const { data: createdMessage, error: createError } = await supabaseClient
+                    .from('messages')
+                    .insert(messageData)
+                    .select()
+                    .single();
+
+                if (createError) {
+                    throw new Error(`Create failed: ${createError.message}`);
+                }
+
+                log(`✅ Message created successfully with ID: ${createdMessage.message_id}`, 'success');
+
+                // Test 2: Get message
+                log('\n📥 Test 2: Retrieving message...');
+                const { data: retrievedMessage, error: getError } = await supabase
+                    .from('messages')
+                    .select('*')
+                    .eq('message_id', createdMessage.message_id)
+                    .single();
+
+                if (getError) {
+                    throw new Error(`Retrieve failed: ${getError.message}`);
+                }
+
+                log(`✅ Message retrieved successfully: "${retrievedMessage.content}"`, 'success');
+
+                // Test 3: Update message
+                log('\n✏️ Test 3: Updating message...');
+                const { data: updatedMessage, error: updateError } = await supabase
+                    .from('messages')
+                    .update({
+                        content: 'Updated test message',
+                        edited_timestamp: new Date().toISOString()
+                    })
+                    .eq('message_id', createdMessage.message_id)
+                    .select()
+                    .single();
+
+                if (updateError) {
+                    throw new Error(`Update failed: ${updateError.message}`);
+                }
+
+                log(`✅ Message updated successfully: "${updatedMessage.content}"`, 'success');
+
+                // Test 4: Delete message
+                log('\n🗑️ Test 4: Deleting message...');
+                const { error: deleteError } = await supabase
+                    .from('messages')
+                    .delete()
+                    .eq('message_id', createdMessage.message_id);
+
+                if (deleteError) {
+                    throw new Error(`Delete failed: ${deleteError.message}`);
+                }
+
+                log('✅ Message deleted successfully', 'success');
+
+                // Summary
+                log('\n📊 Test Results Summary:');
+                log('========================');
+                log('Total Tests: 4');
+                log('Passed: 4 ✅');
+                log('Failed: 0 ❌');
+                log('Success Rate: 100.0%');
+                log('\n🎉 All message operations are working correctly!');
+                log('✅ Phase 1 implementation is verified and ready!');
+
+                showStatus('✅ All tests passed! Phase 1 is working correctly.', 'success');
+
+            } catch (error) {
+                log(`❌ Test failed: ${error.message}`, 'error');
+                showStatus(`❌ Test failed: ${error.message}`, 'error');
+            } finally {
+                testMessageOpsBtn.disabled = false;
+            }
+        }
+
+        // Event listeners
+        testConnectionBtn.addEventListener('click', testConnection);
+        testMessageOpsBtn.addEventListener('click', testMessageOperations);
+        clearOutputBtn.addEventListener('click', clearOutput);
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            log('🚀 Simple Supabase test page loaded');
+            log('💡 Click "Test Supabase Connection" to begin');
+            testMessageOpsBtn.disabled = true;
+        });
+    </script>
+</body>
+</html>

@@ -6,7 +6,7 @@ import { channeljson } from './jsontypes';
 // Get Supabase URL and keys from environment variables
 const SUPABASE_URL = typeof process !== 'undefined' && process.env?.SUPABASE_URL || 'https://vkgkqcsjgiyadivuxosp.supabase.co';
 const SUPABASE_ANON_KEY = typeof process !== 'undefined' ? process.env?.SUPABASE_ANON_KEY : undefined;
-const SUPABASE_SERVICE_ROLE_KEY = typeof process !== 'undefined' ? process.env?.SUPABASE_SERVICE_ROLE_KEY : undefined;
+const SUPABASE_SERVICE_ROLE_KEY = typeof process !== 'undefined' ? process.env?.SUPABASE_SERVICE_ROLE_KEY : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZ2txY3NqZ2l5YWRpdnV4b3NwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODkwODIxNywiZXhwIjoyMDg0NDg0MjE3fQ.nK2z8ekYbvLTPAe7XlizCdyaM-gQXxSaY9rT7m18wtM';
 
 // Use service role key for admin operations (bypasses RLS)
 let SUPABASE_KEY = SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
@@ -1187,6 +1187,523 @@ export async function uploadGuildIcon(guildId: string, file: File): Promise<stri
 	}
 }
 
+// ===== MESSAGING SYSTEM FUNCTIONS =====
+
+// Message interfaces
+export interface MessageData {
+	id?: string; // Discord message ID
+	channel_id: string;
+	guild_id: string;
+	author_id: string;
+	content: string;
+	timestamp?: string;
+	edited_timestamp?: string;
+	tts?: boolean;
+	mention_everyone?: boolean;
+	pinned?: boolean;
+	type?: number;
+	webhook_id?: string;
+	message_reference_id?: string;
+	nonce?: string;
+	flags?: number;
+}
+
+export interface AttachmentData {
+	id?: string;
+	message_id: string;
+	filename: string;
+	content_type?: string;
+	size: number;
+	url: string;
+	proxy_url?: string;
+	width?: number;
+	height?: number;
+	description?: string;
+}
+
+export interface EmbedData {
+	id?: string;
+	message_id: string;
+	title?: string;
+	type?: string;
+	description?: string;
+	url?: string;
+	timestamp?: string;
+	color?: number;
+	footer_text?: string;
+	footer_icon_url?: string;
+	image_url?: string;
+	image_proxy_url?: string;
+	image_width?: number;
+	image_height?: number;
+	thumbnail_url?: string;
+	thumbnail_proxy_url?: string;
+	thumbnail_width?: number;
+	thumbnail_height?: number;
+	video_url?: string;
+	video_width?: number;
+	video_height?: number;
+	video_proxy_url?: string;
+	provider_name?: string;
+	author_name?: string;
+	author_url?: string;
+	author_icon_url?: string;
+}
+
+export interface ReactionData {
+	id?: string;
+	message_id: string;
+	emoji_id?: string;
+	emoji_name: string;
+	emoji_animated?: boolean;
+	count?: number;
+}
+
+/**
+ * Create a message in Supabase
+ */
+export async function createMessage(messageData: MessageData): Promise<any | null> {
+	try {
+		const client = await getSupabaseClient();
+		
+		const { data, error } = await client
+			.from('messages')
+			.insert({
+				...messageData,
+				timestamp: messageData.timestamp || new Date().toISOString(),
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString()
+			})
+			.select()
+			.single();
+
+		if (error) {
+			console.error('Error creating message:', error);
+			return null;
+		}
+
+		console.log('Message created successfully:', data);
+		return data;
+	} catch (error) {
+		console.error('Failed to create message:', error);
+		return null;
+	}
+}
+
+/**
+ * Get messages for a channel from Supabase
+ */
+export async function getMessages(channelId: string, limit = 50, before?: string): Promise<any[]> {
+	try {
+		const client = await getSupabaseClient();
+		
+		let query = client
+			.from('messages')
+			.select('*')
+			.eq('channel_id', channelId)
+			.order('timestamp', { ascending: false })
+			.limit(limit);
+
+		if (before) {
+			query = query.lt('timestamp', before);
+		}
+
+		const { data, error } = await query;
+
+		if (error) {
+			console.error('Error fetching messages:', error);
+			return [];
+		}
+
+		return data || [];
+	} catch (error) {
+		console.error('Failed to fetch messages:', error);
+		return [];
+	}
+}
+
+/**
+ * Get a message by Discord ID
+ */
+export async function getMessageByDiscordId(discordMessageId: string): Promise<any | null> {
+	try {
+		const client = await getSupabaseClient();
+		
+		const { data, error } = await client
+			.from('messages')
+			.select('*')
+			.eq('message_id', discordMessageId)
+			.single();
+
+		if (error) {
+			console.error('Error fetching message by Discord ID:', error);
+			return null;
+		}
+
+		return data;
+	} catch (error) {
+		console.error('Failed to fetch message by Discord ID:', error);
+		return null;
+	}
+}
+
+/**
+ * Update a message in Supabase
+ */
+export async function updateMessage(messageId: string, updates: Partial<MessageData>): Promise<any | null> {
+	try {
+		const client = await getSupabaseClient();
+		
+		const { data, error } = await client
+			.from('messages')
+			.update({
+				...updates,
+				edited_timestamp: new Date().toISOString(),
+				updated_at: new Date().toISOString()
+			})
+			.eq('message_id', messageId)
+			.select()
+			.single();
+
+		if (error) {
+			console.error('Error updating message:', error);
+			return null;
+		}
+
+		console.log('Message updated successfully:', data);
+		return data;
+	} catch (error) {
+		console.error('Failed to update message:', error);
+		return null;
+	}
+}
+
+/**
+ * Delete a message from Supabase
+ */
+export async function deleteMessage(messageId: string): Promise<boolean> {
+	try {
+		const client = await getSupabaseClient();
+		
+		const { error } = await client
+			.from('messages')
+			.delete()
+			.eq('message_id', messageId);
+
+		if (error) {
+			console.error('Error deleting message:', error);
+			return false;
+		}
+
+		console.log('Message deleted successfully');
+		return true;
+	} catch (error) {
+		console.error('Failed to delete message:', error);
+		return false;
+	}
+}
+
+/**
+ * Pin/unpin a message
+ */
+export async function pinMessage(messageId: string, pinned: boolean): Promise<boolean> {
+	return await updateMessage(messageId, { pinned }) !== null;
+}
+
+/**
+ * Create a message attachment
+ */
+export async function createMessageAttachment(attachmentData: AttachmentData): Promise<any | null> {
+	try {
+		const client = await getSupabaseClient();
+		
+		const { data, error } = await client
+			.from('message_attachments')
+			.insert({
+				...attachmentData,
+				created_at: new Date().toISOString()
+			})
+			.select()
+			.single();
+
+		if (error) {
+			console.error('Error creating attachment:', error);
+			return null;
+		}
+
+		return data;
+	} catch (error) {
+		console.error('Failed to create attachment:', error);
+		return null;
+	}
+}
+
+/**
+ * Get attachments for a message
+ */
+export async function getMessageAttachments(messageId: string): Promise<any[]> {
+	try {
+		const client = await getSupabaseClient();
+		
+		const { data, error } = await client
+			.from('message_attachments')
+			.select('*')
+			.eq('message_id', messageId);
+
+		if (error) {
+			console.error('Error fetching attachments:', error);
+			return [];
+		}
+
+		return data || [];
+	} catch (error) {
+		console.error('Failed to fetch attachments:', error);
+		return [];
+	}
+}
+
+/**
+ * Create a message embed
+ */
+export async function createMessageEmbed(embedData: EmbedData): Promise<any | null> {
+	try {
+		const client = await getSupabaseClient();
+		
+		const { data, error } = await client
+			.from('message_embeds')
+			.insert({
+				...embedData,
+				created_at: new Date().toISOString()
+			})
+			.select()
+			.single();
+
+		if (error) {
+			console.error('Error creating embed:', error);
+			return null;
+		}
+
+		return data;
+	} catch (error) {
+		console.error('Failed to create embed:', error);
+		return null;
+	}
+}
+
+/**
+ * Get embeds for a message
+ */
+export async function getMessageEmbeds(messageId: string): Promise<any[]> {
+	try {
+		const client = await getSupabaseClient();
+		
+		const { data, error } = await client
+			.from('message_embeds')
+			.select('*')
+			.eq('message_id', messageId);
+
+		if (error) {
+			console.error('Error fetching embeds:', error);
+			return [];
+		}
+
+		return data || [];
+	} catch (error) {
+		console.error('Failed to fetch embeds:', error);
+		return [];
+	}
+}
+
+/**
+ * Add a reaction to a message
+ */
+export async function addReaction(messageId: string, emojiName: string, userId: string, emojiId?: string): Promise<boolean> {
+	try {
+		const client = await getSupabaseClient();
+		
+		// First, get or create the reaction
+		const { data: existingReaction } = await client
+			.from('message_reactions')
+			.select('*')
+			.eq('message_id', messageId)
+			.eq('emoji_name', emojiName)
+			.single();
+
+		if (existingReaction) {
+			// Increment count
+			const { error } = await client
+				.from('message_reactions')
+				.update({ count: existingReaction.count + 1 })
+				.eq('id', existingReaction.id);
+
+			if (error) {
+				console.error('Error updating reaction count:', error);
+				return false;
+			}
+		} else {
+			// Create new reaction
+			const { error } = await client
+				.from('message_reactions')
+				.insert({
+					message_id: messageId,
+					emoji_id: emojiId,
+					emoji_name: emojiName,
+					emoji_animated: false,
+					count: 1,
+					created_at: new Date().toISOString()
+				});
+
+			if (error) {
+				console.error('Error creating reaction:', error);
+				return false;
+			}
+		}
+
+		return true;
+	} catch (error) {
+		console.error('Failed to add reaction:', error);
+		return false;
+	}
+}
+
+/**
+ * Remove a reaction from a message
+ */
+export async function removeReaction(messageId: string, emojiName: string, userId: string): Promise<boolean> {
+	try {
+		const client = await getSupabaseClient();
+		
+		// Get the reaction
+		const { data: reaction } = await client
+			.from('message_reactions')
+			.select('*')
+			.eq('message_id', messageId)
+			.eq('emoji_name', emojiName)
+			.single();
+
+		if (!reaction) {
+			return false;
+		}
+
+		// Decrement count or delete if count reaches 0
+		if (reaction.count <= 1) {
+			const { error } = await client
+				.from('message_reactions')
+				.delete()
+				.eq('id', reaction.id);
+
+			if (error) {
+				console.error('Error deleting reaction:', error);
+				return false;
+			}
+		} else {
+			const { error } = await client
+				.from('message_reactions')
+				.update({ count: reaction.count - 1 })
+				.eq('id', reaction.id);
+
+			if (error) {
+				console.error('Error updating reaction count:', error);
+				return false;
+			}
+		}
+
+		return true;
+	} catch (error) {
+		console.error('Failed to remove reaction:', error);
+		return false;
+	}
+}
+
+/**
+ * Get reactions for a message
+ */
+export async function getMessageReactions(messageId: string): Promise<any[]> {
+	try {
+		const client = await getSupabaseClient();
+		
+		const { data, error } = await client
+			.from('message_reactions')
+			.select('*')
+			.eq('message_id', messageId);
+
+		if (error) {
+			console.error('Error fetching reactions:', error);
+			return [];
+		}
+
+		return data || [];
+	} catch (error) {
+		console.error('Failed to fetch reactions:', error);
+		return [];
+	}
+}
+
+// Typing indicator functions
+export interface TypingData {
+	channel_id: string;
+	user_id: string;
+	typing: boolean;
+	timestamp?: string;
+}
+
+/**
+ * Set typing status for a user in a channel
+ */
+export async function setTypingStatus(channelId: string, userId: string, typing: boolean): Promise<boolean> {
+	try {
+		const client = await getSupabaseClient();
+		
+		const { error } = await client
+			.from('typing_indicators')
+			.upsert({
+				channel_id: channelId,
+				user_id: userId,
+				typing: typing,
+				timestamp: new Date().toISOString()
+			});
+
+		if (error) {
+			console.error('Error setting typing status:', error);
+			return false;
+		}
+
+		return true;
+	} catch (error) {
+		console.error('Failed to set typing status:', error);
+		return false;
+	}
+}
+
+/**
+ * Get currently typing users in a channel
+ */
+export async function getTypingUsers(channelId: string): Promise<any[]> {
+	try {
+		const client = await getSupabaseClient();
+		
+		// Get typing indicators from last 10 seconds
+		const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
+		
+		const { data, error } = await client
+			.from('typing_indicators')
+			.select('*')
+			.eq('channel_id', channelId)
+			.eq('typing', true)
+			.gte('timestamp', tenSecondsAgo);
+
+		if (error) {
+			console.error('Error fetching typing users:', error);
+			return [];
+		}
+
+		return data || [];
+	} catch (error) {
+		console.error('Failed to fetch typing users:', error);
+		return [];
+	}
+}
+
 export const supabaseData = {
 	getUserInstances,
 	upsertUserInstance,
@@ -1217,5 +1734,25 @@ export const supabaseData = {
 	getGuildChannels,
 	createDefaultGeneralChannel,
 	getChannelName,
-	updateChannelName
+	updateChannelName,
+	// Message functions
+	createMessage,
+	getMessages,
+	updateMessage,
+	deleteMessage,
+	pinMessage,
+	getMessageByDiscordId,
+	// Attachment functions
+	createMessageAttachment,
+	getMessageAttachments,
+	// Embed functions
+	createMessageEmbed,
+	getMessageEmbeds,
+	// Reaction functions
+	addReaction,
+	removeReaction,
+	getMessageReactions,
+	// Typing functions
+	setTypingStatus,
+	getTypingUsers
 };

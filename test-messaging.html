@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Messaging System Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: #fafafa;
+        }
+        .test-section h2 {
+            color: #555;
+            margin-top: 0;
+        }
+        button {
+            background-color: #5865F2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 10px 10px 0;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #4752C4;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #output {
+            background-color: #2e2e2e;
+            color: #fff;
+            padding: 20px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #5865F2;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .test-info {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #5865F2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Supabase Messaging System Test Suite</h1>
+        
+        <div class="test-info">
+            <h3>ℹ️ Test Information</h3>
+            <p>This test suite validates the Phase 1 implementation of the Supabase messaging system. It tests all core messaging functions including:</p>
+            <ul>
+                <li>Message CRUD operations (Create, Read, Update, Delete)</li>
+                <li>Attachment and Embed management</li>
+                <li>Reaction system</li>
+                <li>Typing indicators</li>
+                <li>Message pinning</li>
+            </ul>
+            <p><strong>Note:</strong> These tests use a test channel and will create/delete test data. Make sure you're connected to a development Supabase instance.</p>
+        </div>
+
+        <div class="test-section">
+            <h2>🔗 Connectivity Test</h2>
+            <p>Test basic connection to Supabase and verify the messaging tables exist.</p>
+            <button id="testConnectivity">Test Connection</button>
+            <div id="connectivityStatus"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🚀 Full Test Suite</h2>
+            <p>Run all messaging system tests in sequence. This will test create, read, update, delete operations and more.</p>
+            <button id="runAllTests">Run All Tests</button>
+            <button id="clearOutput">Clear Output</button>
+            <div class="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div id="testStatus"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Test Output</h2>
+            <div id="output">Click "Test Connection" or "Run All Tests" to begin...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the test module - handle both .ts and .js extensions
+        let MessagingTester;
+        
+        async function loadTestModule() {
+            try {
+                // Try to load as JavaScript first
+                const module = await import('./src/webpage/utils/testMessaging.js');
+                MessagingTester = module.MessagingTester;
+            } catch (error) {
+                console.warn('Failed to load .js version, trying .ts version:', error);
+                try {
+                    // Fallback for development environments
+                    console.log('💡 Make sure you have a web server that can serve TypeScript files or compile them first');
+                    console.log('💡 For quick testing, you can copy the test code directly into the console');
+                    return false;
+                } catch (tsError) {
+                    console.error('Failed to load TypeScript module:', tsError);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // DOM elements
+        const output = document.getElementById('output');
+        const testConnectivityBtn = document.getElementById('testConnectivity');
+        const runAllTestsBtn = document.getElementById('runAllTests');
+        const clearOutputBtn = document.getElementById('clearOutput');
+        const progressBar = document.getElementById('progressBar');
+        const connectivityStatus = document.getElementById('connectivityStatus');
+        const testStatus = document.getElementById('testStatus');
+
+        let tester = null;
+        let currentTestIndex = 0;
+        let totalTests = 0;
+
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            output.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function showStatus(element, message, type) {
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function updateProgress(current, total) {
+            const percentage = total > 0 ? (current / total) * 100 : 0;
+            progressBar.style.width = `${percentage}%`;
+        }
+
+        function clearOutput() {
+            output.textContent = '';
+            connectivityStatus.innerHTML = '';
+            testStatus.innerHTML = '';
+            updateProgress(0, 100);
+        }
+
+        // Override console.log to capture output
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            log(args.join(' '), 'info');
+        };
+
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            log(args.join(' '), 'error');
+        };
+
+        // Initialize tester
+        async function initializeTester() {
+            if (!tester) {
+                const loaded = await loadTestModule();
+                if (!loaded) {
+                    showStatus(testStatus, '❌ Failed to load test module. Check console for details.', 'error');
+                    return null;
+                }
+                tester = new MessagingTester();
+            }
+            return tester;
+        }
+
+        // Test connectivity
+        async function testConnectivity() {
+            showStatus(connectivityStatus, 'Testing connection to Supabase...', 'info');
+            testConnectivityBtn.disabled = true;
+
+            try {
+                const test = await initializeTester();
+                const isConnected = await test.testConnectivity();
+                
+                if (isConnected) {
+                    showStatus(connectivityStatus, '✅ Connection successful! Supabase is reachable.', 'success');
+                    runAllTestsBtn.disabled = false;
+                } else {
+                    showStatus(connectivityStatus, '❌ Connection failed. Check your Supabase configuration.', 'error');
+                    runAllTestsBtn.disabled = true;
+                }
+            } catch (error) {
+                showStatus(connectivityStatus, `❌ Connection error: ${error.message}`, 'error');
+                runAllTestsBtn.disabled = true;
+            } finally {
+                testConnectivityBtn.disabled = false;
+            }
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            if (!tester) {
+                showStatus(testStatus, 'Please run connectivity test first.', 'error');
+                return;
+            }
+
+            clearOutput();
+            showStatus(testStatus, 'Running all tests...', 'info');
+            runAllTestsBtn.disabled = true;
+            testConnectivityBtn.disabled = true;
+
+            log('🧪 Starting Supabase Messaging System Tests...');
+            log('================================================');
+
+            try {
+                // Get all test methods
+                const testMethods = [
+                    'testCreateMessage',
+                    'testGetMessages',
+                    'testGetMessageByDiscordId',
+                    'testUpdateMessage',
+                    'testPinMessage',
+                    'testCreateAttachment',
+                    'testGetAttachments',
+                    'testCreateEmbed',
+                    'testGetEmbeds',
+                    'testAddReaction',
+                    'testGetReactions',
+                    'testRemoveReaction',
+                    'testTypingStatus',
+                    'testDeleteMessage'
+                ];
+
+                totalTests = testMethods.length;
+                currentTestIndex = 0;
+
+                // Run tests sequentially
+                for (const methodName of testMethods) {
+                    currentTestIndex++;
+                    updateProgress(currentTestIndex, totalTests);
+                    log(`\n📋 Running test ${currentTestIndex}/${totalTests}: ${methodName}`);
+                    
+                    try {
+                        await tester[methodName]();
+                    } catch (error) {
+                        log(`❌ Test ${methodName} failed with exception: ${error.message}`, 'error');
+                    }
+                }
+
+                // Print final results
+                tester.printResults();
+                
+                showStatus(testStatus, '✅ All tests completed! Check the output for results.', 'success');
+
+            } catch (error) {
+                log(`❌ Test suite failed: ${error.message}`, 'error');
+                showStatus(testStatus, `❌ Test suite failed: ${error.message}`, 'error');
+            } finally {
+                runAllTestsBtn.disabled = false;
+                testConnectivityBtn.disabled = false;
+                updateProgress(100, 100);
+            }
+        }
+
+        // Event listeners
+        testConnectivityBtn.addEventListener('click', testConnectivity);
+        runAllTestsBtn.addEventListener('click', runAllTests);
+        clearOutputBtn.addEventListener('click', clearOutput);
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            log('🚀 Supabase Messaging Test Suite loaded successfully');
+            log('💡 Click "Test Connection" to verify your Supabase setup');
+            runAllTestsBtn.disabled = true;
+        });
+
+        // Handle module loading errors
+        window.addEventListener('error', (event) => {
+            if (event.message.includes('Failed to fetch dynamically imported module')) {
+                log('❌ Failed to load test module. Make sure you\'re running this from a web server.', 'error');
+                showStatus(testStatus, '❌ Module loading failed. Run from a web server.', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
