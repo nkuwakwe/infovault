@@ -19,6 +19,7 @@ import {Components} from "./interactions/compontents.js";
 import {ImagesDisplay} from "./disimg";
 import {ReportMenu} from "./reporting/report.js";
 import {getDeveloperSettings} from "./utils/storage/devSettings.js";
+import { supabaseData } from "./supabaseData.js";
 class Message extends SnowFlake {
 	static contextmenu = new Contextmenu<Message, void>("message menu");
 	stickers!: Sticker[];
@@ -307,7 +308,70 @@ class Message extends SnowFlake {
 		if (!dontStore) {
 			this.owner.messages.set(this.id, this);
 		}
+		
+		// Phase 2: Store message in Supabase
+		this.storeInSupabase();
 	}
+	// Phase 2: Store message in Supabase
+	async storeInSupabase() {
+		try {
+			// Convert message data to Supabase format
+			const messageData = {
+				message_id: this.id,
+				channel_id: this.channel.id,
+				guild_id: this.guild.id,
+				author_id: this.author.id,
+				content: this.content?.txt?.join('') || '',
+				timestamp: this.timestamp ? new Date(this.timestamp).toISOString() : new Date().toISOString(),
+				edited_timestamp: this.edited_timestamp,
+				tts: this.tts || false,
+				mention_everyone: this.mention_everyone || false,
+				pinned: this.pinned || false,
+				type: this.type || 0,
+				flags: this.flags || 0
+			};
+
+			// Store in Supabase
+			await supabaseData.createMessage(messageData);
+			console.log('✅ Message stored in Supabase:', this.id);
+
+			// Store attachments if any
+			if (this.attachments && this.attachments.length > 0) {
+				for (const attachment of this.attachments) {
+					await supabaseData.createMessageAttachment({
+						message_id: this.id,
+						filename: attachment.filename,
+						content_type: attachment.content_type,
+						size: attachment.size,
+						url: attachment.url,
+						width: attachment.width,
+						height: attachment.height
+					});
+				}
+			}
+
+			// Store embeds if any
+			if (this.embeds && this.embeds.length > 0) {
+				for (const embed of this.embeds) {
+					await supabaseData.createMessageEmbed({
+						message_id: this.id,
+						title: embed.title,
+						type: embed.type,
+						description: embed.description,
+						url: embed.url,
+						color: embed.color,
+						footer_text: embed.footer?.text,
+						footer_icon_url: embed.footer?.icon_url
+					});
+				}
+			}
+
+		} catch (error) {
+			console.error('❌ Failed to store message in Supabase:', error);
+			// Don't throw error - continue with normal operation
+		}
+	}
+
 	reactionToggle(emoji: string | Emoji) {
 		if (emoji instanceof Emoji && !emoji.id && emoji.emoji) {
 			emoji = emoji.emoji;
@@ -325,6 +389,11 @@ class Message extends SnowFlake {
 				emoji instanceof Emoji ? emoji.id || (emoji.emoji as string) : emoji,
 			);
 		}
+		
+		// Phase 2: Use Supabase for reactions
+		this.updateReactionInSupabase(emoji, remove);
+		
+		// Keep Discord API for now (hybrid approach)
 		fetch(
 			`${this.info.api}/channels/${this.channel.id}/messages/${this.id}/reactions/${reactiontxt}/@me`,
 			{
@@ -333,6 +402,25 @@ class Message extends SnowFlake {
 			},
 		);
 	}
+	// Phase 2: Update reaction in Supabase
+	async updateReactionInSupabase(emoji: string | Emoji, remove: boolean) {
+		try {
+			const emojiName = emoji instanceof Emoji ? emoji.name : emoji;
+			const emojiId = emoji instanceof Emoji ? emoji.id : undefined;
+			const userId = this.localuser.user.id;
+
+			if (remove) {
+				await supabaseData.removeReaction(this.id, emojiName, userId);
+				console.log('✅ Reaction removed from Supabase:', emojiName);
+			} else {
+				await supabaseData.addReaction(this.id, emojiName, userId, emojiId);
+				console.log('✅ Reaction added to Supabase:', emojiName);
+			}
+		} catch (error) {
+			console.error('❌ Failed to update reaction in Supabase:', error);
+		}
+	}
+
 	components?: Components;
 	edited_timestamp: string | null = null;
 	giveData(messagejson: messagejson) {
