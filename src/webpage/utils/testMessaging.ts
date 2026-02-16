@@ -2,7 +2,6 @@
 import {
 	createMessage,
 	getMessages,
-	getMessageByDiscordId,
 	updateMessage,
 	deleteMessage,
 	pinMessage,
@@ -57,7 +56,7 @@ class MessagingTester {
 		try {
 			const result = await createMessage(messageData);
 			if (result) {
-				this.createdMessageId = result.message_id || messageData.id;
+				this.createdMessageId = result.id || messageData.id;
 				this.logTest('Create Message', {
 					success: true,
 					message: 'Message created successfully',
@@ -96,31 +95,6 @@ class MessagingTester {
 		}
 	}
 
-	// Test message retrieval by Discord ID
-	async testGetMessageByDiscordId(): Promise<void> {
-		if (!this.createdMessageId) {
-			this.logTest('Get Message by Discord ID', {
-				success: false,
-				message: 'No message ID to test with'
-			});
-			return;
-		}
-
-		try {
-			const message = await getMessageByDiscordId(this.createdMessageId);
-			this.logTest('Get Message by Discord ID', {
-				success: !!message,
-				message: message ? 'Message found by Discord ID' : 'Message not found',
-				data: message
-			});
-		} catch (error) {
-			this.logTest('Get Message by Discord ID', {
-				success: false,
-				message: 'Exception during message retrieval by Discord ID',
-				error
-			});
-		}
-	}
 
 	// Test message update
 	async testUpdateMessage(): Promise<void> {
@@ -444,7 +418,6 @@ class MessagingTester {
 
 		await this.testCreateMessage();
 		await this.testGetMessages();
-		await this.testGetMessageByDiscordId();
 		await this.testUpdateMessage();
 		await this.testPinMessage();
 		await this.testCreateAttachment();

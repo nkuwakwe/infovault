@@ -62,8 +62,26 @@ function loadScript(src: string): Promise<void> {
 }
 
 /**
+ * Generate a unique random string ID for database records
+ * This creates a unique identifier that's compatible with TEXT columns
+ */
+export function generateUniqueId(): string {
+	// Generate a random string using crypto if available, otherwise fallback to Math.random
+	const randomBytes = typeof crypto !== 'undefined' && crypto.getRandomValues 
+		? Array.from(crypto.getRandomValues(new Uint8Array(16)))
+		: Array.from({length: 16}, () => Math.floor(Math.random() * 256));
+	
+	// Convert to hex string and add timestamp for uniqueness
+	const hex = randomBytes.map(b => b.toString(16).padStart(2, '0')).join('');
+	const timestamp = Date.now().toString(36);
+	
+	return `${hex}-${timestamp}`;
+}
+
+/**
  * Convert Discord snowflake ID to a UUID-like format for Supabase
  * This creates a deterministic UUID from the Discord ID
+ * @deprecated Use generateUniqueId() for new records, keep this for legacy compatibility
  */
 export function discordIdToUuid(discordId: string): string {
 	// Create a simple UUID-like format from the Discord ID
@@ -76,6 +94,7 @@ export function discordIdToUuid(discordId: string): string {
 /**
  * Convert Discord channel ID to a UUID-like format for Supabase
  * This creates a deterministic UUID from the Discord channel ID
+ * @deprecated Use generateUniqueId() for new records, keep this for legacy compatibility
  */
 export function channelIdToUuid(channelId: string): string {
 	// Create a simple UUID-like format from the Discord channel ID
@@ -87,21 +106,22 @@ export function channelIdToUuid(channelId: string): string {
 
 /**
  * Create a guild in Supabase
- * Note: Uses guild_id to store Discord guild ID for unique identification
+ * Note: Uses Discord guild ID as primary key
  */
-export async function createGuild(guild: Omit<Guild, 'id'>): Promise<Guild | null> {
+export async function createGuild(discordGuildId: string, guild: Omit<Guild, 'id'>): Promise<Guild | null> {
 	try {
 		const client = await getSupabaseClient();
 		
-		// Prepare guild data with Discord guild ID
+		// Prepare guild data with Discord guild ID as primary key
 		const guildData = {
+			id: discordGuildId, // Use Discord guild ID as primary key
 			name: guild.name,
 			description: guild.description || null,
 			icon: guild.icon || null,
 			banner: guild.banner || null,
 			splash: guild.splash || null,
 			owner_id: null, // Set to null to avoid foreign key constraint
-			guild_id: guild.guild_id, // Store Discord guild ID here
+			// Using id as Discord guild ID (primary key)
 			region: guild.region || null,
 			preferred_locale: guild.preferred_locale || 'en-US',
 			features: guild.features || [],
@@ -144,9 +164,9 @@ export async function createGuild(guild: Omit<Guild, 'id'>): Promise<Guild | nul
 
 		// Create a default "general" channel for the new guild
 		// Use the guild ID from the created guild data
-		if (data && data.guild_id) {
+		if (data && data.id) {
 			try {
-				const generalChannel = await createDefaultGeneralChannel(data.guild_id);
+				const generalChannel = await createDefaultGeneralChannel(data.id);
 				if (generalChannel) {
 					console.log('Default general channel created:', generalChannel.id);
 				} else {
@@ -156,7 +176,7 @@ export async function createGuild(guild: Omit<Guild, 'id'>): Promise<Guild | nul
 				console.error('Error creating default general channel:', error);
 			}
 		} else {
-			console.warn('Cannot create default general channel: guild_id is undefined');
+			console.warn('Cannot create default general channel: guild id is undefined');
 		}
 
 		return data;
@@ -212,7 +232,7 @@ export interface Guild {
 	banner?: string;
 	splash?: string;
 	owner_id?: string; // Optional UUID for Supabase auth users
-	guild_id?: string; // Discord guild ID as string
+	// guild_id column no longer exists - using id as Discord guild ID
 	region?: string;
 	preferred_locale?: string;
 	features?: string[];
@@ -242,8 +262,8 @@ export interface Guild {
 }
 
 export interface Channel {
-	channel_id: string;
-	id: string;
+	channel_id(arg0: string, channel_id: any): unknown;
+	id: string; // Discord channel ID (now primary key)
 	guild_id: string;
 	name: string;
 	type: number; // 0 = text, 2 = voice, etc.
@@ -281,10 +301,10 @@ export async function createChannel(channel: channeljson & { guild_id: string })
 		
 		console.log('createChannel called with data:', channel);
 		
-		// Prepare channel data with Discord channel ID
+		// Prepare channel data with Discord channel ID as primary key
 		const channelData = {
-			channel_id: channel.id, // Store Discord channel ID
-			guild_id: channel.guild_id,
+			id: channel.id, // Use Discord channel ID as primary key
+			guild_id: channel.guild_id, // Reference to guild's id column
 			name: channel.name,
 			type: channel.type || 0,
 			topic: channel.topic || null,
@@ -332,7 +352,7 @@ export async function createChannel(channel: channeljson & { guild_id: string })
 }
 
 /**
- * Get channels for a guild from Supabase
+ * Get channels for a guild from Supabase by guild database ID
  */
 export async function getGuildChannels(guildId: string): Promise<any[]> {
 	try {
@@ -341,7 +361,7 @@ export async function getGuildChannels(guildId: string): Promise<any[]> {
 		const { data, error } = await client
 			.from('channels')
 			.select('*')
-			.eq('guild_id', guildId)
+			.eq('guild_id', guildId) // Use guild's database ID
 			.order('position', { ascending: true });
 
 		if (error) {
@@ -350,8 +370,8 @@ export async function getGuildChannels(guildId: string): Promise<any[]> {
 		}
 
 		// Transform database data to match channeljson structure
-		return (data || []).map((channel: { channel_id: any; id: any; name: any; type: any; guild_id: any; topic: any; nsfw: any; position: any; parent_id: any; rate_limit_per_user: any; last_message_id: any; last_pin_timestamp: any; default_auto_archive_duration: any; flags: any; video_quality_mode: any; created_at: any; owner_id: any; }) => ({
-			id: channel.channel_id, // Use channel_id as the ID
+		return (data || []).map((channel: { id: any; name: any; type: any; guild_id: any; topic: any; nsfw: any; position: any; parent_id: any; rate_limit_per_user: any; last_message_id: any; last_pin_timestamp: any; default_auto_archive_duration: any; flags: any; video_quality_mode: any; created_at: any; owner_id: any; }) => ({
+			id: channel.id, // Use Discord ID as the ID for compatibility
 			name: channel.name,
 			type: channel.type,
 			guild_id: channel.guild_id,
@@ -388,8 +408,8 @@ export async function createDefaultGeneralChannel(guildId: string): Promise<Chan
 		
 		// Directly insert default general channel without calling createChannel
 		const channelData = {
-			channel_id: channelIdToUuid(Date.now().toString()),
-			guild_id: guildId,
+			id: generateUniqueId(), // Generate unique ID for default channel
+			guild_id: guildId, // Reference to guild's id column
 			name: 'general',
 			type: 0, // Text channel
 			topic: 'General discussion',
@@ -426,12 +446,11 @@ export async function channelExistsByDiscordId(discordId: string): Promise<boole
 	try {
 		const client = await getSupabaseClient();
 		
-		// Since we don't have a Discord ID column, we need to check by name and guild_id
-		// This is a workaround until we add a discord_id column
+		// Check if channel exists by Discord channel ID (now the primary key)
 		const { data, error } = await client
 			.from('channels')
-			.select('name, guild_id')
-			.eq('guild_id', discordId) // This won't work, we need guild_id
+			.select('id')
+			.eq('id', discordId) // Use id column (Discord channel ID)
 			.limit(1);
 
 		if (error) {
@@ -452,12 +471,12 @@ export async function channelExistsByDiscordId(discordId: string): Promise<boole
 export async function getChannelName(channelId: string): Promise<string | null> {
 	try {
 		const client = await getSupabaseClient();
-		console.log('Looking for channel with channel_id:', channelId);
+		console.log('Looking for channel with id:', channelId);
 		
 		const { data, error } = await client
 			.from('channels')
 			.select('name')
-			.eq('channel_id', channelId) // Use Discord channel_id column
+			.eq('id', channelId) // Use id column (Discord channel ID)
 			.single();
 
 		if (error) {
@@ -466,7 +485,7 @@ export async function getChannelName(channelId: string): Promise<string | null> 
 		}
 
 		if (!data) {
-			console.log('Channel not found in Supabase for channel_id:', channelId);
+			console.log('Channel not found in Supabase for id:', channelId);
 			return null;
 		}
 
@@ -491,7 +510,7 @@ export async function updateChannelName(channelId: string, newName: string): Pro
 				name: newName,
 				updated_at: new Date().toISOString()
 			})
-			.eq('channel_id', channelId) // Use Discord channel_id column
+			.eq('id', channelId) // Use id column (Discord channel ID)
 
 		if (error) {
 			console.error('Failed to update channel name in database:', error);
@@ -828,30 +847,11 @@ export async function deleteGuild(discordGuildId: string): Promise<boolean> {
 		const client = await getSupabaseClient();
 		console.log('Attempting to delete guild from Supabase by Discord guild ID:', discordGuildId);
 		
-		// First find the guild by guild_id
-		const { data: guildData, error: findError } = await client
-			.from('guilds')
-			.select('id')
-			.eq('guild_id', discordGuildId)
-			.single();
-
-		if (findError) {
-			console.error('Error finding guild:', findError);
-			return false;
-		}
-
-		if (!guildData) {
-			console.log('Guild not found in Supabase for Discord guild ID:', discordGuildId);
-			return false; // Not an error, just doesn't exist
-		}
-
-		console.log('Found guild in Supabase with ID:', guildData.id, 'now deleting...');
-
-		// Delete by the Supabase primary key 'id' field, not guild_id
+		// Delete by the Discord guild ID which is now the primary key
 		const { data, error } = await client
 			.from('guilds')
 			.delete()
-			.eq('id', guildData.id);
+			.eq('id', discordGuildId); // Use id column (Discord guild ID)
 
 		console.log('Supabase delete response:', { data, error });
 
@@ -860,7 +860,7 @@ export async function deleteGuild(discordGuildId: string): Promise<boolean> {
 			return false;
 		}
 
-		console.log('Guild successfully deleted from Supabase:', guildData.id);
+		console.log('Guild successfully deleted from Supabase:', discordGuildId);
 		return true;
 	} catch (error) {
 		console.error('Failed to delete guild:', error);
@@ -869,7 +869,7 @@ export async function deleteGuild(discordGuildId: string): Promise<boolean> {
 }
 
 /**
- * Get a guild by ID
+ * Get a guild by database ID (primary key)
  */
 export async function getGuild(guildId: string): Promise<Guild | null> {
 	try {
@@ -877,7 +877,7 @@ export async function getGuild(guildId: string): Promise<Guild | null> {
 		const { data, error } = await client
 			.from('guilds')
 			.select('*')
-			.eq('guild_id', guildId)
+			.eq('id', guildId) // Use primary key for database lookups
 			.single();
 
 		if (error) {
@@ -893,15 +893,39 @@ export async function getGuild(guildId: string): Promise<Guild | null> {
 }
 
 /**
- * Get all guilds for a user
+ * Get a guild by Discord guild ID
  */
-export async function getUserGuilds(ownerId: string): Promise<Guild[]> {
+export async function getGuildByDiscordId(discordGuildId: string): Promise<Guild | null> {
 	try {
 		const client = await getSupabaseClient();
 		const { data, error } = await client
 			.from('guilds')
 			.select('*')
-			.eq('guild_id', ownerId)
+			.eq('id', discordGuildId) // Use id column (Discord guild ID)
+			.single();
+
+		if (error) {
+			console.error('Error fetching guild by Discord ID:', error);
+			return null;
+		}
+
+		return data;
+	} catch (error) {
+		console.error('Failed to fetch guild by Discord ID:', error);
+		return null;
+	}
+}
+
+/**
+ * Get all guilds for a user by Discord user ID
+ */
+export async function getUserGuilds(discordUserId: string): Promise<Guild[]> {
+	try {
+		const client = await getSupabaseClient();
+		const { data, error } = await client
+			.from('guilds')
+			.select('*')
+			.eq('guild_owner_id', discordUserId) // Use Discord user ID column
 			.order('created_at', { ascending: false });
 
 		if (error) {
@@ -917,18 +941,18 @@ export async function getUserGuilds(ownerId: string): Promise<Guild[]> {
 }
 
 /**
- * Get guild by Discord ID and return updated name
+ * Get guild name by Discord guild ID
  */
 export async function getGuildName(discordGuildId: string): Promise<string | null> {
 	try {
 		const client = await getSupabaseClient();
-		console.log('Looking for guild with guild_id:', discordGuildId);
+		console.log('Looking for guild with Discord guild ID:', discordGuildId);
 		
-		// Try to find guild by guild_id, but use maybeSingle() instead of single()
+		// Find guild by Discord guild ID (now the primary key)
 		const { data, error } = await client
 			.from('guilds')
-			.select('name, guild_id')
-			.eq('guild_id', discordGuildId)
+			.select('name')
+			.eq('id', discordGuildId)
 			.maybeSingle(); // Use maybeSingle() to handle 0 rows
 
 		console.log('Guild query result:', { data, error });
@@ -939,7 +963,7 @@ export async function getGuildName(discordGuildId: string): Promise<string | nul
 		}
 
 		if (!data) {
-			console.log('No guild found in Supabase for guild_id:', discordGuildId);
+			console.log('No guild found in Supabase for Discord guild ID:', discordGuildId);
 			return null;
 		}
 
@@ -959,7 +983,7 @@ export async function debugListAllGuilds(): Promise<any[]> {
 		const client = await getSupabaseClient();
 		const { data, error } = await client
 			.from('guilds')
-			.select('id, name, guild_id')
+			.select('id, name')
 			.limit(10);
 
 		if (error) {
@@ -976,47 +1000,30 @@ export async function debugListAllGuilds(): Promise<any[]> {
 }
 
 /**
- * Update guild name in Supabase
+ * Update guild name in Supabase by Discord guild ID
  */
 export async function updateGuildName(discordGuildId: string, newName: string): Promise<boolean> {
 	try {
 		const client = await getSupabaseClient();
 		
-		// First find the guild by guild_id
-		const { data: guildData, error: findError } = await client
-			.from('guilds')
-			.select('id')
-			.eq('guild_id', discordGuildId)
-			.single();
-
-		if (findError) {
-			console.error('Error finding guild for name update:', findError);
-			return false;
-		}
-
-		if (!guildData) {
-			console.log('Guild not found in Supabase for Discord guild ID:', discordGuildId);
-			return false;
-		}
-
-		// Update the name
+		// Update the name using the Discord guild ID (now primary key)
 		const { error } = await client
 			.from('guilds')
 			.update({ 
 				name: newName,
 				updated_at: new Date().toISOString()
 			})
-			.eq('guild_id', discordGuildId);
+			.eq('id', discordGuildId); // Use id column (Discord guild ID)
 
 		if (error) {
 			console.error('Error updating guild name:', error);
 			return false;
 		}
 
-		console.log('Guild name successfully updated in Supabase:', newName);
+		console.log('Guild name successfully updated in database:', newName);
 		return true;
 	} catch (error) {
-		console.error('Failed to update guild name:', error);
+		console.error('Error updating guild name in database:', error);
 		return false;
 	}
 }
@@ -1029,7 +1036,7 @@ export async function updateGuildIcon(guildId: string, iconUrl: string): Promise
 		const { error } = await supabase
 			.from('guilds')
 			.update({ icon: iconUrl })
-			.eq('guild_id', guildId);
+			.eq('id', guildId); // Use id column (Discord guild ID)
 
 		if (error) {
 			console.error('Failed to update guild icon in database:', error);
@@ -1051,7 +1058,7 @@ export async function getGuildIcon(guildId: string): Promise<string | null> {
 		const { data, error } = await client
 			.from('guilds')
 			.select('icon')
-			.eq('guild_id', guildId)
+			.eq('id', guildId) // Use id column (Discord guild ID)
 			.single();
 
 		if (error) {
@@ -1074,7 +1081,7 @@ export async function updateGuildBanner(guildId: string, bannerUrl: string): Pro
 		const { error } = await supabase
 			.from('guilds')
 			.update({ banner: bannerUrl })
-			.eq('guild_id', guildId);
+			.eq('id', guildId); // Use id column (Discord guild ID)
 
 		if (error) {
 			console.error('Failed to update guild banner in database:', error);
@@ -1096,7 +1103,7 @@ export async function getGuildBanner(guildId: string): Promise<string | null> {
 		const { data, error } = await client
 			.from('guilds')
 			.select('banner')
-			.eq('guild_id', guildId)
+			.eq('id', guildId) // Use id column (Discord guild ID)
 			.single();
 
 		if (error) {
@@ -1107,6 +1114,95 @@ export async function getGuildBanner(guildId: string): Promise<string | null> {
 		return data?.banner || null;
 	} catch (error) {
 		console.error('Failed to fetch guild banner:', error);
+		return null;
+	}
+}
+
+// ===== CHANNEL ICON FUNCTIONS =====
+
+// Update channel icon in database
+export async function updateChannelIcon(channelId: string, iconUrl: string): Promise<boolean> {
+	try {
+		const supabase = await getSupabaseClient();
+		
+		const { error } = await supabase
+			.from('channels')
+			.update({ icon: iconUrl })
+			.eq('id', channelId); // Use id column (Discord channel ID)
+
+		if (error) {
+			console.error('Failed to update channel icon in database:', error);
+			return false;
+		}
+
+		console.log('Channel icon successfully updated in database:', iconUrl);
+		return true;
+	} catch (error) {
+		console.error('Error updating channel icon in database:', error);
+		return false;
+	}
+}
+
+// Get channel icon from database
+export async function getChannelIcon(channelId: string): Promise<string | null> {
+	try {
+		const client = await getSupabaseClient();
+		const { data, error } = await client
+			.from('channels')
+			.select('icon')
+			.eq('id', channelId) // Use id column (Discord channel ID)
+			.single();
+
+		if (error) {
+			console.error('Error fetching channel icon:', error);
+			return null;
+		}
+
+		return data?.icon || null;
+	} catch (error) {
+		console.error('Failed to fetch channel icon:', error);
+		return null;
+	}
+}
+
+// Upload channel icon to Supabase storage
+export async function uploadChannelIcon(channelId: string, file: File): Promise<string | null> {
+	try {
+		const supabase = await getSupabaseClient();
+		const fileExtension = file.name.split('.').pop() || 'png';
+		const filePath = `channel-icons/${channelId}.${fileExtension}`;
+		
+		console.log(`Uploading channel icon for ${channelId} → guild-assets/${filePath}`);
+		
+		const { data, error } = await supabase.storage
+			.from('guild-assets')
+			.upload(filePath, file, {
+				cacheControl: '3600',
+				upsert: true,
+				contentType: file.type
+			});
+
+		if (error) {
+			console.error('Upload failed:', error.message);
+			if (error.message.includes('Unauthorized')) {
+				console.log('→ Check: bucket policies, RLS, or you used wrong key?');
+			} else if (error.message.includes('does not exist')) {
+				console.log('→ Bucket "guild-assets" does not exist yet – create it in dashboard first.');
+			}
+			return null;
+		}
+
+		console.log('Upload successful!', data);
+
+		// Get public URL
+		const { data: urlData } = supabase.storage
+			.from('guild-assets')
+			.getPublicUrl(filePath);
+
+		console.log('Public URL:', urlData.publicUrl);
+		return urlData.publicUrl;
+	} catch (error) {
+		console.error('Failed to upload channel icon:', error);
 		return null;
 	}
 }
@@ -1191,7 +1287,7 @@ export async function uploadGuildIcon(guildId: string, file: File): Promise<stri
 
 // Message interfaces
 export interface MessageData {
-	id?: string; // Discord message ID
+	id?: string; // Discord message ID (now primary key)
 	channel_id: string;
 	guild_id: string;
 	author_id: string;
@@ -1210,7 +1306,7 @@ export interface MessageData {
 
 export interface AttachmentData {
 	id?: string;
-	message_id: string;
+	message_id: string; // Foreign key to messages.id
 	filename: string;
 	content_type?: string;
 	size: number;
@@ -1223,7 +1319,7 @@ export interface AttachmentData {
 
 export interface EmbedData {
 	id?: string;
-	message_id: string;
+	message_id: string; // Foreign key to messages.id
 	title?: string;
 	type?: string;
 	description?: string;
@@ -1252,7 +1348,7 @@ export interface EmbedData {
 
 export interface ReactionData {
 	id?: string;
-	message_id: string;
+	message_id: string; // Foreign key to messages.id
 	emoji_id?: string;
 	emoji_name: string;
 	emoji_animated?: boolean;
@@ -1269,6 +1365,7 @@ export async function createMessage(messageData: MessageData): Promise<any | nul
 		const { data, error } = await client
 			.from('messages')
 			.insert({
+				id: messageData.id || generateUniqueId(), // Use Discord message ID as primary key
 				...messageData,
 				timestamp: messageData.timestamp || new Date().toISOString(),
 				created_at: new Date().toISOString(),
@@ -1291,7 +1388,7 @@ export async function createMessage(messageData: MessageData): Promise<any | nul
 }
 
 /**
- * Get messages for a channel from Supabase
+ * Get messages for a channel from Supabase by channel database ID
  */
 export async function getMessages(channelId: string, limit = 50, before?: string): Promise<any[]> {
 	try {
@@ -1300,7 +1397,7 @@ export async function getMessages(channelId: string, limit = 50, before?: string
 		let query = client
 			.from('messages')
 			.select('*')
-			.eq('channel_id', channelId)
+			.eq('channel_id', channelId) // Use channel's database ID
 			.order('timestamp', { ascending: false })
 			.limit(limit);
 
@@ -1323,32 +1420,33 @@ export async function getMessages(channelId: string, limit = 50, before?: string
 }
 
 /**
- * Get a message by Discord ID
+ * Get a message by database ID
  */
-export async function getMessageByDiscordId(discordMessageId: string): Promise<any | null> {
+export async function getMessage(messageId: string): Promise<any | null> {
 	try {
 		const client = await getSupabaseClient();
 		
 		const { data, error } = await client
 			.from('messages')
 			.select('*')
-			.eq('message_id', discordMessageId)
+			.eq('id', messageId) // Use primary key for database lookups
 			.single();
 
 		if (error) {
-			console.error('Error fetching message by Discord ID:', error);
+			console.error('Error fetching message:', error);
 			return null;
 		}
 
 		return data;
 	} catch (error) {
-		console.error('Failed to fetch message by Discord ID:', error);
+		console.error('Failed to fetch message:', error);
 		return null;
 	}
 }
 
+
 /**
- * Update a message in Supabase
+ * Update a message in Supabase by database ID
  */
 export async function updateMessage(messageId: string, updates: Partial<MessageData>): Promise<any | null> {
 	try {
@@ -1361,7 +1459,7 @@ export async function updateMessage(messageId: string, updates: Partial<MessageD
 				edited_timestamp: new Date().toISOString(),
 				updated_at: new Date().toISOString()
 			})
-			.eq('message_id', messageId)
+			.eq('id', messageId) // Use primary key for updates
 			.select()
 			.single();
 
@@ -1379,7 +1477,7 @@ export async function updateMessage(messageId: string, updates: Partial<MessageD
 }
 
 /**
- * Delete a message from Supabase
+ * Delete a message from Supabase by database ID
  */
 export async function deleteMessage(messageId: string): Promise<boolean> {
 	try {
@@ -1388,7 +1486,7 @@ export async function deleteMessage(messageId: string): Promise<boolean> {
 		const { error } = await client
 			.from('messages')
 			.delete()
-			.eq('message_id', messageId);
+			.eq('id', messageId); // Use primary key for deletion
 
 		if (error) {
 			console.error('Error deleting message:', error);
@@ -1420,6 +1518,7 @@ export async function createMessageAttachment(attachmentData: AttachmentData): P
 		const { data, error } = await client
 			.from('message_attachments')
 			.insert({
+				id: generateUniqueId(), // Generate unique primary key
 				...attachmentData,
 				created_at: new Date().toISOString()
 			})
@@ -1472,6 +1571,7 @@ export async function createMessageEmbed(embedData: EmbedData): Promise<any | nu
 		const { data, error } = await client
 			.from('message_embeds')
 			.insert({
+				id: generateUniqueId(), // Generate unique primary key
 				...embedData,
 				created_at: new Date().toISOString()
 			})
@@ -1525,7 +1625,7 @@ export async function addReaction(messageId: string, emojiName: string, userId: 
 		const { data: existingReaction } = await client
 			.from('message_reactions')
 			.select('*')
-			.eq('message_id', messageId)
+			.eq('message_id', messageId) // Use message database ID
 			.eq('emoji_name', emojiName)
 			.single();
 
@@ -1545,6 +1645,7 @@ export async function addReaction(messageId: string, emojiName: string, userId: 
 			const { error } = await client
 				.from('message_reactions')
 				.insert({
+					id: generateUniqueId(), // Generate unique primary key
 					message_id: messageId,
 					emoji_id: emojiId,
 					emoji_name: emojiName,
@@ -1577,7 +1678,7 @@ export async function removeReaction(messageId: string, emojiName: string, userI
 		const { data: reaction } = await client
 			.from('message_reactions')
 			.select('*')
-			.eq('message_id', messageId)
+			.eq('message_id', messageId) // Use message database ID
 			.eq('emoji_name', emojiName)
 			.single();
 
@@ -1590,7 +1691,7 @@ export async function removeReaction(messageId: string, emojiName: string, userI
 			const { error } = await client
 				.from('message_reactions')
 				.delete()
-				.eq('id', reaction.id);
+				.eq('id', reaction.id); // Use primary key for deletion
 
 			if (error) {
 				console.error('Error deleting reaction:', error);
@@ -1735,13 +1836,15 @@ export const supabaseData = {
 	createDefaultGeneralChannel,
 	getChannelName,
 	updateChannelName,
+	getChannelIcon,
+	uploadChannelIcon,
+	updateChannelIcon,
 	// Message functions
 	createMessage,
 	getMessages,
 	updateMessage,
 	deleteMessage,
 	pinMessage,
-	getMessageByDiscordId,
 	// Attachment functions
 	createMessageAttachment,
 	getMessageAttachments,

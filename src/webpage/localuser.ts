@@ -2166,7 +2166,6 @@ class Localuser {
 					icon: guildResponse.icon || fields.icon,
 					banner: guildResponse.banner || null,
 					splash: guildResponse.splash || null,
-					guild_id: guildResponse.id, // Store the actual Discord guild ID
 					region: guildResponse.region || null,
 					preferred_locale: guildResponse.preferred_locale || 'en-US',
 					features: guildResponse.features || [],
@@ -2192,7 +2191,7 @@ class Localuser {
 					safety_alerts_channel_id: guildResponse.safety_alerts_channel_id || null
 				};
 
-				const supabaseGuild = await createSupabaseGuild(guildData);
+				const supabaseGuild = await createSupabaseGuild(guildResponse.id, guildData);
 				if (supabaseGuild) {
 					console.log('Guild successfully saved to Supabase:', supabaseGuild.id);
 				} else {

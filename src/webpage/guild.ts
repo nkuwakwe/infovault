@@ -6,7 +6,7 @@ import {Member} from "./member.js";
 import {Dialog, FormError, Options, Settings} from "./settings.js";
 import {Permissions} from "./permissions.js";
 import {SnowFlake} from "./snowflake.js";
-import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, getGuildIcon, uploadGuildIcon, updateGuildIcon, getGuildBanner, uploadGuildBanner, updateGuildBanner, createChannel, getGuildChannels, createDefaultGeneralChannel, updateChannelName, channelIdToUuid, channelExistsByDiscordId} from "./supabaseData.js";
+import {deleteGuild as deleteSupabaseGuild, getGuildName, updateGuildName, debugListAllGuilds, getGuildIcon, uploadGuildIcon, updateGuildIcon, getGuildBanner, uploadGuildBanner, updateGuildBanner, createChannel, getGuildChannels, createDefaultGeneralChannel, updateChannelName, channelIdToUuid, channelExistsByDiscordId, getGuildByDiscordId, getChannelIcon, uploadChannelIcon, updateChannelIcon} from "./supabaseData.js";
 import {
 	channeljson,
 	guildjson,
@@ -192,6 +192,7 @@ class Guild extends SnowFlake {
 	large!: boolean;
 	stickers!: Sticker[];
 	members = new Set<Member>();
+	databaseId!: string; // Database primary key for this guild
 	static contextmenu = new Contextmenu<Guild, undefined>("guild menu");
 	icon: any;
 	static setupcontextmenu() {
@@ -1368,6 +1369,14 @@ class Guild extends SnowFlake {
 		if (json === -1 || member === null) {
 			return;
 		}
+		
+		// Fetch database ID for this guild
+		if (typeof json !== "number") {
+			this.fetchDatabaseId().catch(error => {
+				console.error('Failed to fetch guild database ID:', error);
+			});
+		}
+		
 		if (json.stickers.length) {
 			console.log(json.stickers, ":3");
 		}
@@ -1448,6 +1457,23 @@ class Guild extends SnowFlake {
 	private supabaseName: string | null = null;
 	
 	/**
+	 * Fetch the database ID for this guild from Supabase
+	 */
+	async fetchDatabaseId(): Promise<void> {
+		try {
+			const guildData = await getGuildByDiscordId(this.id);
+			if (guildData && guildData.id) {
+				this.databaseId = guildData.id;
+				console.log(`Guild database ID set: ${this.databaseId} for Discord ID: ${this.id}`);
+			} else {
+				console.warn(`No database record found for guild Discord ID: ${this.id}`);
+			}
+		} catch (error) {
+			console.error('Error fetching guild database ID:', error);
+		}
+	}
+	
+	/**
  * Sync guild name from Supabase database
  */
 async syncNameFromSupabase(): Promise<void> {
@@ -1497,7 +1523,7 @@ updateServerNameDisplay(): void {
 	async updateGuildName(newName: string): Promise<boolean> {
 	try {
 		// Update in Supabase first
-		const success = await updateGuildName(this.properties.owner_id, newName);
+		const success = await updateGuildName(this.id, newName);
 		if (success) {
 			// Update local Supabase name cache
 			this.supabaseName = newName;
@@ -2471,6 +2497,17 @@ updateServerNameDisplay(): void {
 		try {
 			console.log('Attempting to store channel in database:', channelJson.name);
 			
+			// Ensure we have the database ID for this guild
+			if (!this.databaseId) {
+				console.log('Guild database ID not available, fetching...');
+				await this.fetchDatabaseId();
+				
+				if (!this.databaseId) {
+					console.error('Cannot store channel: Guild database ID not found');
+					return;
+				}
+			}
+			
 			// Check if channel already exists in database to prevent duplicates
 			const channelExists = await channelExistsByDiscordId(channelJson.id);
 			if (channelExists) {
@@ -2480,10 +2517,10 @@ updateServerNameDisplay(): void {
 			
 			// Transform channeljson to database format
 			const dbChannel = {
-				id: channelJson.id, // Discord channel ID (required by channeljson)
-				created_at: new Date().toISOString(), // Current timestamp (required by channeljson)
-				channel_id: channelIdToUuid(Date.now().toString()), // Generate unique channel_id
-				guild_id: this.id,
+				id: channelJson.id, // Discord channel ID to satisfy type requirement
+				created_at: new Date().toISOString(), // Current timestamp
+				channel_id: channelJson.id, // Store Discord channel ID here
+				guild_id: this.databaseId, // Use guild's database ID
 				name: channelJson.name,
 				type: channelJson.type,
 				topic: channelJson.topic || "",

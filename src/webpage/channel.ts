@@ -31,7 +31,7 @@ import {Direct} from "./direct.js";
 import {ProgessiveDecodeJSON} from "./utils/progessiveLoad.js";
 import {NotificationHandler} from "./notificationHandler.js";
 import {Command} from "./interactions/commands.js";
-import {getChannelName, updateChannelName} from "./supabaseData.js";
+import {getChannelName, updateChannelName, getChannelIcon, uploadChannelIcon, updateChannelIcon} from "./supabaseData.js";
 
 class Channel extends SnowFlake {
 	editing!: Message | null;
@@ -171,6 +171,21 @@ class Channel extends SnowFlake {
 					css: "svg-delete",
 				},
 				color: "red",
+			},
+		);
+
+		this.contextmenu.addButton(
+			() => I18n.guild.updateIcon(),
+			function (this: Channel) {
+				this.updateChannelIcon();
+			},
+			{
+				visible: function () {
+					return this.hasPermission("MANAGE_CHANNELS");
+				},
+				icon: {
+					css: "svg-upload",
+				},
 			},
 		);
 
@@ -551,6 +566,9 @@ class Channel extends SnowFlake {
 		
 		// Sync channel name from Supabase if available
 		this.syncNameFromSupabase();
+		
+		// Sync channel icon from Supabase if available
+		this.syncIconFromSupabase();
 	}
 	
 	/**
@@ -632,6 +650,152 @@ class Channel extends SnowFlake {
 		} catch (error) {
 			console.error('Error updating channel name:', error);
 			return false;
+		}
+	}
+	
+	/**
+	 * Update channel icon in both local and Supabase
+	 */
+	async updateChannelIcon(): Promise<void> {
+		const dialog = new Dialog(I18n.guild.updateIcon());
+		
+		// Create file input
+		const fileInput = document.createElement('input');
+		fileInput.type = 'file';
+		fileInput.accept = 'image/*';
+		fileInput.style.margin = '10px 0';
+		
+		// Create preview element
+		const preview = document.createElement('img');
+		preview.style.maxWidth = '200px';
+		preview.style.maxHeight = '200px';
+		preview.style.marginTop = '10px';
+		preview.style.display = 'none';
+		preview.style.borderRadius = '8px';
+		
+		// Handle file selection
+		fileInput.addEventListener('change', (event) => {
+			const file = (event.target as HTMLInputElement).files?.[0];
+			if (file) {
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					preview.src = e.target?.result as string;
+					preview.style.display = 'block';
+				};
+				reader.readAsDataURL(file);
+			}
+		});
+		
+		// Add elements to dialog
+		dialog.options.addHTMLArea(fileInput);
+		dialog.options.addHTMLArea(preview);
+		
+		// Add upload button
+		const uploadButtonInput = dialog.options.addButtonInput("", "Upload", async () => {
+			const file = fileInput.files?.[0];
+			if (!file) {
+				alert('Please select an image file');
+				return;
+			}
+			
+			// Show loading state
+			const uploadButton = uploadButtonInput.buttonHtml;
+			if (uploadButton) {
+				const originalText = uploadButton.textContent;
+				uploadButton.textContent = 'Uploading...';
+				uploadButton.disabled = true;
+			}
+			
+			try {
+				// Upload to Supabase
+				const publicUrl = await uploadChannelIcon(this.id, file);
+				
+				if (publicUrl) {
+					// Update channel icon in the API
+					const response = await fetch(this.info.api + "/channels/" + this.id, {
+						method: "PATCH",
+						headers: this.headers,
+						body: JSON.stringify({
+							icon: publicUrl.split('/').pop()?.split('?')[0] || ''
+						})
+					});
+					
+					if (response.ok) {
+						// Update local icon
+						this.icon = publicUrl.split('/').pop()?.split('?')[0] || '';
+						
+						// Store icon URL in database
+						const dbUpdateSuccess = await updateChannelIcon(this.id, publicUrl);
+						if (!dbUpdateSuccess) {
+							console.warn('Channel icon updated in API but failed to store in database');
+						}
+						
+						// Update the UI
+						this.updateChannelIconDisplay();
+						
+						alert('Channel icon updated successfully!');
+						dialog.hide();
+					} else {
+						throw new Error('Failed to update channel icon in API');
+					}
+				} else {
+					throw new Error('Failed to upload image to storage');
+				}
+			} catch (error) {
+				console.error('Error updating channel icon:', error);
+				alert('Failed to update channel icon. Please try again.');
+			} finally {
+				// Restore button state
+				const uploadButton = uploadButtonInput.buttonHtml;
+				if (uploadButton) {
+					uploadButton.textContent = 'Upload';
+					uploadButton.disabled = false;
+				}
+			}
+		});
+		
+		dialog.show();
+	}
+	
+	/**
+	 * Update the channel icon display in the DOM
+	 */
+	updateChannelIconDisplay(): void {
+		// Update channel list if this guild is currently being displayed
+		if (this.guild.localuser.lookingguild?.id === this.guild.id) {
+			this.guild.printServers();
+		}
+		
+		// Update icon in the channel header if this is the focused channel
+		if (this.guild.localuser.channelfocus?.id === this.id) {
+			const channelIconElement = document.querySelector("#channelicon img");
+			if (channelIconElement) {
+				channelIconElement.setAttribute('src', this.iconUrl());
+				console.log(`Updated channel icon in DOM to: "${this.iconUrl()}"`);
+			}
+		}
+	}
+	
+	/**
+	 * Sync channel icon from Supabase database
+	 */
+	async syncIconFromSupabase(): Promise<void> {
+		try {
+			console.log('Attempting to sync channel icon for channel ID:', this.id);
+			const supabaseIcon = await getChannelIcon(this.id);
+			if (supabaseIcon && supabaseIcon !== this.icon) {
+				this.icon = supabaseIcon.split('/').pop()?.split('?')[0] || '';
+				console.log(`Channel icon synced from Supabase: "${this.icon}"`);
+				
+				// Update the channel icon display if this channel is visible
+				this.updateChannelIconDisplay();
+			} else if (!supabaseIcon) {
+				console.log('No channel icon found in Supabase for this channel ID');
+			} else {
+				console.log('Channel icon in Supabase matches local icon');
+			}
+		} catch (error) {
+			console.error('Failed to sync channel icon from Supabase:', error);
 		}
 	}
 	get perminfo() {
