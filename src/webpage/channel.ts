@@ -766,12 +766,45 @@ class Channel extends SnowFlake {
 	}
 	
 	/**
-	 * Update the channel icon display in the DOM
+	 * Update channel icon display in the DOM
 	 */
 	updateChannelIconDisplay(): void {
 		// Update channel list if this guild is currently being displayed
 		if (this.guild.localuser.lookingguild?.id === this.guild.id) {
-			this.guild.printServers();
+			// Directly update the channel button icon using our stored reference
+			const channelDiv = this.html?.deref();
+			if (channelDiv) {
+				const channelButton = channelDiv.querySelector('.channelbutton');
+				if (channelButton) {
+					const iconWrapper = channelButton.querySelector('div[style*="display: flex"]');
+					if (iconWrapper) {
+						const existingIcon = iconWrapper.querySelector('img.space');
+						if (existingIcon) {
+							existingIcon.setAttribute('src', this.iconUrl());
+							console.log(`Updated channel button icon to: "${this.iconUrl()}"`);
+						}
+					}
+				}
+			}
+			
+			// Fallback: try to find button by channel name in all channel buttons
+			if (!channelDiv?.querySelector('.channelbutton img.space')) {
+				const allChannelButtons = document.querySelectorAll('.channelbutton');
+				for (const button of allChannelButtons) {
+					const nameSpan = button.querySelector('.ellipsis');
+					if (nameSpan && nameSpan.textContent === this.currentName) {
+						const iconWrapper = button.querySelector('div[style*="display: flex"]');
+						if (iconWrapper) {
+							const existingIcon = iconWrapper.querySelector('img.space');
+							if (existingIcon) {
+								existingIcon.setAttribute('src', this.iconUrl());
+								console.log(`Updated channel button icon by name to: "${this.iconUrl()}"`);
+							}
+						}
+						break;
+					}
+				}
+			}
 		}
 		
 		// Update icon in the channel header if this is the focused channel
@@ -1052,7 +1085,7 @@ class Channel extends SnowFlake {
 		wrapper.appendChild(icon);
 		
 		// Add custom icon if it exists
-		if (this.icon && !this.localuser.perminfo.user.disableIcons) {
+		if ((this.icon || this.supabaseIconUrl) && !this.localuser.perminfo.user.disableIcons) {
 			let customIcon = this.customIconElm.deref();
 			if (customIcon instanceof HTMLImageElement) {
 				customIcon.setSrcs(this.iconUrl());
@@ -2079,7 +2112,7 @@ class Channel extends SnowFlake {
 			placeholderContainer.appendChild(messageText);
 			
 			// Channel icon
-			if (this.icon) {
+			if (this.icon || this.supabaseIconUrl) {
 				const iconImg = document.createElement("img");
 				iconImg.src = this.iconUrl();
 				iconImg.style.width = "16px";
