@@ -1,17 +1,65 @@
 import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import { getSupabaseClient } from '../supabaseData.js';
-import { readyjson, wsjson, messageCreateJson } from '../jsontypes.js';
+import { wsjson } from '../jsontypes.js';
 import { Localuser } from '../localuser.js';
 import { getDeveloperSettings } from './storage/devSettings.js';
 
+// Import Supabase client directly since it's not exported
+import { createClient } from '@supabase/supabase-js';
+const SUPABASE_URL = 'https://vkgkqcsjgiyadivuxosp.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZ2txY3NqZ2l5YWRpdnV4b3NwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODkwODIxNywiZXhwIjoyMDg0NDg0MjE3fQ.nK2z8ekYbvLTPAe7XlizCdyaM-gQXxSaY9rT7m18wtM';
+
+async function getSupabaseClient() {
+    return createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
 /**
- * Manages Supabase Realtime subscriptions to replace the WebSocket Gateway
+ * Real-time event types for better type safety
+ */
+export enum RealtimeEventType {
+    MESSAGE_CREATE = 'MESSAGE_CREATE',
+    MESSAGE_UPDATE = 'MESSAGE_UPDATE',
+    MESSAGE_DELETE = 'MESSAGE_DELETE',
+    CHANNEL_CREATE = 'CHANNEL_CREATE',
+    CHANNEL_UPDATE = 'CHANNEL_UPDATE',
+    CHANNEL_DELETE = 'CHANNEL_DELETE',
+    GUILD_CREATE = 'GUILD_CREATE',
+    GUILD_UPDATE = 'GUILD_UPDATE',
+    GUILD_DELETE = 'GUILD_DELETE',
+    TYPING_START = 'TYPING_START',
+    PRESENCE_UPDATE = 'PRESENCE_UPDATE',
+    USER_SETTINGS_UPDATE = 'USER_SETTINGS_UPDATE'
+}
+
+/**
+ * Real-time presence data
+ */
+export interface PresenceData {
+    user_id: string;
+    channel_id?: string;
+    guild_id?: string;
+    status: 'online' | 'idle' | 'dnd' | 'offline';
+    last_seen: number;
+    member?: any;
+}
+
+/**
+ * Real-time typing data
+ */
+export interface TypingData {
+    user_id: string;
+    channel_id: string;
+    timestamp: number;
+    member?: any;
+}
+
+/**
+ * Manages Supabase Realtime subscriptions to replace WebSocket Gateway
  */
 export class SupabaseRealtime {
     private channels: Map<string, RealtimeChannel> = new Map();
     private localuser: Localuser;
     private initialized: boolean = false;
-    private cleanupFunctions: (() => void)[] = [];
+    private presenceState: Map<string, PresenceData> = new Map();
 
     constructor(localuser: Localuser) {
         this.localuser = localuser;
@@ -99,6 +147,19 @@ export class SupabaseRealtime {
 
         this.channels.set('presence', presenceChannel);
 
+        // Subscribe to User Settings for real-time sync
+        const userSettingsChannel = client.channel('public:user_preferences')
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'user_preferences' },
+                (payload: RealtimePostgresChangesPayload<any>) => this.handleUserSettingsChange(payload)
+            )
+            .subscribe((status: any) => {
+                console.log(`Supabase Realtime (User Settings): ${status}`);
+            });
+
+        this.channels.set('user_settings', userSettingsChannel);
+
         this.initialized = true;
     }
 
@@ -109,7 +170,7 @@ export class SupabaseRealtime {
         const client = await getSupabaseClient();
         if (!client) return;
 
-        for (const [name, channel] of this.channels) {
+        for (const [, channel] of this.channels) {
             await client.removeChannel(channel);
         }
         this.channels.clear();
@@ -118,15 +179,16 @@ export class SupabaseRealtime {
 
     // --- Event Handlers ---
 
-    private handleMessageChange(payload: RealtimePostgresChangesPayload<any>) {
-        if (getDeveloperSettings().gatewayLogging) console.debug('Realtime Message:', payload);
+    private async handleMessageChange(payload: RealtimePostgresChangesPayload<any>) {
+        const devSettings = await getDeveloperSettings();
+        if (devSettings?.gatewayLogging) console.debug('Realtime Message:', payload);
 
         // Map Supabase event to wsjson format for Localuser
-        let eventType: any = '';
+        let eventType: string = '';
         switch (payload.eventType) {
-            case 'INSERT': eventType = 'MESSAGE_CREATE'; break;
-            case 'UPDATE': eventType = 'MESSAGE_UPDATE'; break;
-            case 'DELETE': eventType = 'MESSAGE_DELETE'; break;
+            case 'INSERT': eventType = RealtimeEventType.MESSAGE_CREATE; break;
+            case 'UPDATE': eventType = RealtimeEventType.MESSAGE_UPDATE; break;
+            case 'DELETE': eventType = RealtimeEventType.MESSAGE_DELETE; break;
         }
 
         if (!eventType) return;
@@ -198,7 +260,7 @@ export class SupabaseRealtime {
         // Construct the wsjson event
         const event: wsjson = {
             op: 0,
-            t: eventType,
+            t: eventType as any, // Cast to any to match wsjson type
             d: messageData,
             s: Date.now() // Mock sequence
         };
@@ -206,14 +268,39 @@ export class SupabaseRealtime {
         this.localuser.handleEvent(event);
     }
 
-    private handleChannelChange(payload: RealtimePostgresChangesPayload<any>) {
-        if (getDeveloperSettings().gatewayLogging) console.debug('Realtime Channel:', payload);
+    private async handleChannelChange(payload: RealtimePostgresChangesPayload<any>) {
+        const devSettings = await getDeveloperSettings();
+        if (devSettings?.gatewayLogging) console.debug('Realtime Channel:', payload);
 
-        let eventType: any = '';
+        let eventType: string = '';
         switch (payload.eventType) {
-            case 'INSERT': eventType = 'CHANNEL_CREATE'; break;
-            case 'UPDATE': eventType = 'CHANNEL_UPDATE'; break;
-            case 'DELETE': eventType = 'CHANNEL_DELETE'; break;
+            case 'INSERT': eventType = RealtimeEventType.CHANNEL_CREATE; break;
+            case 'UPDATE': eventType = RealtimeEventType.CHANNEL_UPDATE; break;
+            case 'DELETE': eventType = RealtimeEventType.CHANNEL_DELETE; break;
+        }
+
+        if (!eventType) return;
+        const d = payload.eventType === 'DELETE' ? payload.old : payload.new;
+
+        const event: wsjson = {
+            op: 0,
+            t: eventType as any, // Cast to any to match wsjson type
+            d: d,
+            s: Date.now()
+        };
+
+        this.localuser.handleEvent(event);
+    }
+
+    private async handleGuildChange(payload: RealtimePostgresChangesPayload<any>) {
+        const devSettings = await getDeveloperSettings();
+        if (devSettings?.gatewayLogging) console.debug('Realtime Guild:', payload);
+
+        let eventType: string = '';
+        switch (payload.eventType) {
+            case 'INSERT': eventType = RealtimeEventType.GUILD_CREATE; break;
+            case 'UPDATE': eventType = RealtimeEventType.GUILD_UPDATE; break;
+            case 'DELETE': eventType = RealtimeEventType.GUILD_DELETE; break;
         }
 
         if (!eventType) return;
@@ -229,35 +316,13 @@ export class SupabaseRealtime {
         this.localuser.handleEvent(event);
     }
 
-    private handleGuildChange(payload: RealtimePostgresChangesPayload<any>) {
-        if (getDeveloperSettings().gatewayLogging) console.debug('Realtime Guild:', payload);
-
-        let eventType: any = '';
-        switch (payload.eventType) {
-            case 'INSERT': eventType = 'GUILD_CREATE'; break;
-            case 'UPDATE': eventType = 'GUILD_UPDATE'; break;
-            case 'DELETE': eventType = 'GUILD_DELETE'; break;
-        }
-
-        if (!eventType) return;
-        const d = payload.eventType === 'DELETE' ? payload.old : payload.new;
+    private async handleTyping(payload: { payload: { user_id: string, channel_id: string, member: any } }) {
+        const devSettings = await getDeveloperSettings();
+        if (devSettings?.gatewayLogging) console.debug('Realtime Typing:', payload);
 
         const event: wsjson = {
             op: 0,
-            t: eventType,
-            d: d,
-            s: Date.now()
-        };
-
-        this.localuser.handleEvent(event);
-    }
-
-    private handleTyping(payload: { payload: { user_id: string, channel_id: string, member: any } }) {
-        if (getDeveloperSettings().gatewayLogging) console.debug('Realtime Typing:', payload);
-
-        const event: wsjson = {
-            op: 0,
-            t: 'TYPING_START',
+            t: RealtimeEventType.TYPING_START,
             d: {
                 user_id: payload.payload.user_id,
                 channel_id: payload.payload.channel_id,
@@ -270,9 +335,63 @@ export class SupabaseRealtime {
         this.localuser.handleEvent(event);
     }
 
-    private handlePresence(payload: any) {
-        // TODO: Map presence updates to PRESENCE_UPDATE event
-        if (getDeveloperSettings().gatewayLogging) console.debug('Realtime Presence:', payload);
+    private async handlePresence(payload: any) {
+        const devSettings = await getDeveloperSettings();
+        if (devSettings?.gatewayLogging) console.debug('Realtime Presence:', payload);
+
+        // Update presence state
+        const presenceData: PresenceData = {
+            user_id: payload.payload.user_id,
+            channel_id: payload.payload.channel_id,
+            guild_id: payload.payload.guild_id,
+            status: payload.payload.status || 'online',
+            last_seen: Date.now(),
+            member: payload.payload.member
+        };
+
+        this.presenceState.set(payload.payload.user_id, presenceData);
+
+        // Map presence updates to USER_UPDATE event (as a proxy for presence)
+        const event: wsjson = {
+            op: 0,
+            t: 'USER_UPDATE', // Use existing event type
+            d: {
+                user: presenceData.member || { id: payload.payload.user_id },
+                status: presenceData.status,
+                activities: []
+            },
+            s: Date.now()
+        };
+
+        this.localuser.handleEvent(event);
+    }
+
+    /**
+     * Handle user settings changes for real-time sync
+     */
+    private async handleUserSettingsChange(payload: RealtimePostgresChangesPayload<any>) {
+        const devSettings = await getDeveloperSettings();
+        if (devSettings?.gatewayLogging) console.debug('Realtime User Settings:', payload);
+
+        if (payload.eventType !== 'UPDATE' || !payload.new) return;
+
+        // Check if this is the current user's settings
+        const currentUserId = this.localuser.user.id;
+        if (payload.new.user_id !== currentUserId) return;
+
+        // Emit USER_UPDATE event for settings changes
+        const event: wsjson = {
+            op: 0,
+            t: 'USER_UPDATE', // Use existing event type
+            d: {
+                user_id: payload.new.user_id,
+                settings: payload.new,
+                updated_at: payload.new.updated_at
+            },
+            s: Date.now()
+        };
+
+        this.localuser.handleEvent(event);
     }
 
     /**

@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Features Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success { background: #2d5a2d; }
+        .error { background: #5a2d2d; }
+        .info { background: #2d4a5a; }
+        .warning { background: #5a5a2d; }
+        #output {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 4px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .test-section {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .event-log {
+            background: #222;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .presence-list {
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .presence-item {
+            background: #333;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .online { border-left: 4px solid #4CAF50; }
+        .idle { border-left: 4px solid #FFA726; }
+        .dnd { border-left: 4px solid #F44336; }
+        .offline { border-left: 4px solid #666; }
+        .typing-indicator {
+            color: #FFA726;
+            font-style: italic;
+            margin-left: 10px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+        .button-group button {
+            flex: 1;
+            min-width: 150px;
+        }
+        input, select {
+            background: #555;
+            color: white;
+            border: 1px solid #666;
+            padding: 8px;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-item {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔄 Real-time Features Test Suite</h1>
+    
+    <div class="container">
+        <h2>Supabase Real-time Connection</h2>
+        <div class="button-group">
+            <button id="testConnection">Test Real-time Connection</button>
+            <button id="initRealtime">Initialize Real-time</button>
+            <button id="destroyRealtime">Destroy Real-time</button>
+        </div>
+        <div id="connectionStatus" class="status info">Click to test connection...</div>
+    </div>
+
+    <div class="container">
+        <h2>Real-time Statistics</h2>
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="messageCount">0</div>
+                <div class="stat-label">Messages Received</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="channelCount">0</div>
+                <div class="stat-label">Channel Updates</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="guildCount">0</div>
+                <div class="stat-label">Guild Updates</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="typingCount">0</div>
+                <div class="stat-label">Typing Events</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="presenceCount">0</div>
+                <div class="stat-label">Presence Updates</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="settingsCount">0</div>
+                <div class="stat-label">Settings Updates</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-grid">
+        <div class="test-section">
+            <h3>Message Events</h3>
+            <div class="button-group">
+                <button id="testMessageCreate">Test Message Create</button>
+                <button id="testMessageUpdate">Test Message Update</button>
+                <button id="testMessageDelete">Test Message Delete</button>
+            </div>
+            <div class="event-log" id="messageEvents">No message events yet...</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Channel Events</h3>
+            <div class="button-group">
+                <button id="testChannelCreate">Test Channel Create</button>
+                <button id="testChannelUpdate">Test Channel Update</button>
+                <button id="testChannelDelete">Test Channel Delete</button>
+            </div>
+            <div class="event-log" id="channelEvents">No channel events yet...</div>
+        </div>
+    </div>
+
+    <div class="test-grid">
+        <div class="test-section">
+            <h3>User Presence</h3>
+            <div class="button-group">
+                <button id="testPresenceUpdate">Test Presence Update</button>
+                <button id="testTypingStart">Test Typing Start</button>
+                <button id="clearPresence">Clear Presence</button>
+            </div>
+            <div class="presence-list" id="presenceList">
+                <div class="presence-item">No users online...</div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Settings Sync</h3>
+            <div class="button-group">
+                <button id="testSettingsUpdate">Test Settings Update</button>
+                <button id="simulateRemoteSettings">Simulate Remote Settings Change</button>
+            </div>
+            <div class="event-log" id="settingsEvents">No settings events yet...</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Real-time Event Log</h2>
+        <button id="clearLog">Clear Log</button>
+        <div id="output"></div>
+    </div>
+
+    <script type="module">
+        // Import Supabase client
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+        // Supabase configuration
+        const SUPABASE_URL = 'https://vkgkqcsjgiyadivuxosp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZ2txY3NqZ2l5YWRpdnV4b3NwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODkwODIxNywiZXhwIjoyMDg0NDg0MjE3fQ.nK2z8ekYbvLTPAe7XlizCdyaM-gQXxSaY9rT7m18wtM';
+
+        // Initialize Supabase client
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // DOM elements
+        const output = document.getElementById('output');
+        const connectionStatus = document.getElementById('connectionStatus');
+
+        // Statistics elements
+        const messageCount = document.getElementById('messageCount');
+        const channelCount = document.getElementById('channelCount');
+        const guildCount = document.getElementById('guildCount');
+        const typingCount = document.getElementById('typingCount');
+        const presenceCount = document.getElementById('presenceCount');
+        const settingsCount = document.getElementById('settingsCount');
+
+        // Event log elements
+        const messageEvents = document.getElementById('messageEvents');
+        const channelEvents = document.getElementById('channelEvents');
+        const settingsEvents = document.getElementById('settingsEvents');
+        const presenceList = document.getElementById('presenceList');
+
+        let realtimeClient = null;
+        let eventStats = {
+            messages: 0,
+            channels: 0,
+            guilds: 0,
+            typing: 0,
+            presence: 0,
+            settings: 0
+        };
+        let presenceState = new Map();
+
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            output.textContent += logMessage;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(element, message, type) {
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        function updateStats() {
+            messageCount.textContent = eventStats.messages;
+            channelCount.textContent = eventStats.channels;
+            guildCount.textContent = eventStats.guilds;
+            typingCount.textContent = eventStats.typing;
+            presenceCount.textContent = eventStats.presence;
+            settingsCount.textContent = eventStats.settings;
+        }
+
+        function addEventLog(logElement, event) {
+            const timestamp = new Date().toLocaleTimeString();
+            const eventText = `[${timestamp}] ${event.type}: ${JSON.stringify(event.data)}`;
+            logElement.textContent = eventText + '\n' + logElement.textContent;
+        }
+
+        function updatePresenceList() {
+            if (presenceState.size === 0) {
+                presenceList.innerHTML = '<div class="presence-item">No users online...</div>';
+                return;
+            }
+
+            let html = '';
+            for (const [userId, presence] of presenceState) {
+                const statusClass = presence.status;
+                html += `
+                    <div class="presence-item ${statusClass}">
+                        <span>User ${userId}</span>
+                        <span>${presence.status}</span>
+                        <span>${new Date(presence.last_seen).toLocaleTimeString()}</span>
+                    </div>
+                `;
+            }
+            presenceList.innerHTML = html;
+        }
+
+        // Real-time subscription functions
+        async function initializeRealtime() {
+            try {
+                log('🔄 Initializing Supabase Real-time...');
+
+                // Subscribe to messages
+                const messageChannel = supabase.channel('public:messages')
+                    .on('postgres_changes', 
+                        { event: '*', schema: 'public', table: 'messages' },
+                        (payload) => handleRealtimeEvent('message', payload)
+                    )
+                    .subscribe((status) => {
+                        log(`📡 Messages channel: ${status}`);
+                    });
+
+                // Subscribe to channels
+                const channelChannel = supabase.channel('public:channels')
+                    .on('postgres_changes',
+                        { event: '*', schema: 'public', table: 'channels' },
+                        (payload) => handleRealtimeEvent('channel', payload)
+                    )
+                    .subscribe((status) => {
+                        log(`📡 Channels channel: ${status}`);
+                    });
+
+                // Subscribe to guilds
+                const guildChannel = supabase.channel('public:guilds')
+                    .on('postgres_changes',
+                        { event: '*', schema: 'public', table: 'guilds' },
+                        (payload) => handleRealtimeEvent('guild', payload)
+                    )
+                    .subscribe((status) => {
+                        log(`📡 Guilds channel: ${status}`);
+                    });
+
+                // Subscribe to user settings
+                const settingsChannel = supabase.channel('public:user_preferences')
+                    .on('postgres_changes',
+                        { event: 'UPDATE', schema: 'public', table: 'user_preferences' },
+                        (payload) => handleRealtimeEvent('settings', payload)
+                    )
+                    .subscribe((status) => {
+                        log(`📡 Settings channel: ${status}`);
+                    });
+
+                // Presence and typing broadcast channel
+                const presenceChannel = supabase.channel('presence')
+                    .on('broadcast',
+                        { event: 'presence' },
+                        (payload) => handleRealtimeEvent('presence', payload)
+                    )
+                    .on('broadcast',
+                        { event: 'typing' },
+                        (payload) => handleRealtimeEvent('typing', payload)
+                    )
+                    .subscribe((status) => {
+                        log(`📡 Presence channel: ${status}`);
+                    });
+
+                realtimeClient = {
+                    messageChannel,
+                    channelChannel,
+                    guildChannel,
+                    settingsChannel,
+                    presenceChannel
+                };
+
+                updateStatus(connectionStatus, '✅ Real-time initialized!', 'success');
+                log('✅ Real-time subscriptions established');
+
+            } catch (error) {
+                updateStatus(connectionStatus, `❌ Initialization failed: ${error.message}`, 'error');
+                log(`❌ Real-time initialization failed: ${error.message}`);
+            }
+        }
+
+        function handleRealtimeEvent(eventType, payload) {
+            log(`🔄 Real-time event: ${eventType} - ${payload.eventType}`);
+
+            switch (eventType) {
+                case 'message':
+                    eventStats.messages++;
+                    addEventLog(messageEvents, {
+                        type: payload.eventType,
+                        data: payload.new || payload.old
+                    });
+                    break;
+
+                case 'channel':
+                    eventStats.channels++;
+                    addEventLog(channelEvents, {
+                        type: payload.eventType,
+                        data: payload.new || payload.old
+                    });
+                    break;
+
+                case 'guild':
+                    eventStats.guilds++;
+                    break;
+
+                case 'presence':
+                    eventStats.presence++;
+                    const presenceData = payload.payload;
+                    presenceState.set(presenceData.user_id, {
+                        user_id: presenceData.user_id,
+                        status: presenceData.status || 'online',
+                        last_seen: Date.now()
+                    });
+                    updatePresenceList();
+                    break;
+
+                case 'typing':
+                    eventStats.typing++;
+                    addEventLog(messageEvents, {
+                        type: 'TYPING_START',
+                        data: payload.payload
+                    });
+                    break;
+
+                case 'settings':
+                    eventStats.settings++;
+                    addEventLog(settingsEvents, {
+                        type: payload.eventType,
+                        data: payload.new
+                    });
+                    break;
+            }
+
+            updateStats();
+        }
+
+        async function destroyRealtime() {
+            if (!realtimeClient) return;
+
+            try {
+                log('🗑️ Destroying real-time subscriptions...');
+
+                // Unsubscribe from all channels
+                if (realtimeClient.messageChannel) {
+                    await supabase.removeChannel(realtimeClient.messageChannel);
+                }
+                if (realtimeClient.channelChannel) {
+                    await supabase.removeChannel(realtimeClient.channelChannel);
+                }
+                if (realtimeClient.guildChannel) {
+                    await supabase.removeChannel(realtimeClient.guildChannel);
+                }
+                if (realtimeClient.settingsChannel) {
+                    await supabase.removeChannel(realtimeClient.settingsChannel);
+                }
+                if (realtimeClient.presenceChannel) {
+                    await supabase.removeChannel(realtimeClient.presenceChannel);
+                }
+
+                realtimeClient = null;
+                updateStatus(connectionStatus, '✅ Real-time destroyed', 'info');
+                log('✅ Real-time subscriptions destroyed');
+
+            } catch (error) {
+                log(`❌ Failed to destroy real-time: ${error.message}`);
+            }
+        }
+
+        // Test functions
+        async function testConnection() {
+            try {
+                updateStatus(connectionStatus, 'Testing connection...', 'info');
+                log('🔌 Testing Supabase connection...');
+
+                const { data, error } = await supabase
+                    .from('messages')
+                    .select('count')
+                    .limit(1);
+
+                if (error) throw error;
+
+                updateStatus(connectionStatus, '✅ Connection successful!', 'success');
+                log('✅ Supabase connection test passed');
+
+                // Enable test buttons
+                document.querySelectorAll('button:not(#testConnection):not(#initRealtime):not(#destroyRealtime)').forEach(btn => {
+                    btn.disabled = false;
+                });
+
+            } catch (error) {
+                updateStatus(connectionStatus, `❌ Connection failed: ${error.message}`, 'error');
+                log(`❌ Connection test failed: ${error.message}`);
+            }
+        }
+
+        async function testMessageCreate() {
+            try {
+                log('📝 Testing message creation...');
+                
+                // First, create a test guild if it doesn't exist
+                const testGuildId = 'test-guild-456';
+                const { data: guildData, error: guildError } = await supabase
+                    .from('guilds')
+                    .select('id')
+                    .eq('id', testGuildId)
+                    .single();
+
+                if (guildError && guildError.code === 'PGRST116') {
+                    // Guild doesn't exist, create it
+                    const { data: newGuild, error: createGuildError } = await supabase
+                        .from('guilds')
+                        .insert({
+                            id: testGuildId,
+                            name: 'Test Real-time Guild',
+                            owner_id: 'test-user-789'
+                        })
+                        .select()
+                        .single();
+
+                    if (createGuildError) throw createGuildError;
+                    log('✅ Test guild created');
+                }
+
+                // Then create a test channel if it doesn't exist
+                const testChannelId = 'test-channel-123';
+                const { data: channelData, error: channelError } = await supabase
+                    .from('channels')
+                    .select('id')
+                    .eq('id', testChannelId)
+                    .single();
+
+                if (channelError && channelError.code === 'PGRST116') {
+                    // Channel doesn't exist, create it
+                    const { data: newChannel, error: createChannelError } = await supabase
+                        .from('channels')
+                        .insert({
+                            id: testChannelId,
+                            guild_id: testGuildId,
+                            name: 'test-real-time-channel',
+                            type: 0,
+                            position: 0
+                        })
+                        .select()
+                        .single();
+
+                    if (createChannelError) throw createChannelError;
+                    log('✅ Test channel created');
+                }
+
+                // Now create the test message
+                const testMessage = {
+                    id: 'test-msg-' + Date.now(),
+                    channel_id: testChannelId,
+                    guild_id: testGuildId,
+                    author_id: 'test-user-789',
+                    content: 'Test message from real-time test',
+                    timestamp: new Date().toISOString(),
+                    type: 0
+                };
+
+                const { data, error } = await supabase
+                    .from('messages')
+                    .insert(testMessage)
+                    .select();
+
+                if (error) throw error;
+
+                log('✅ Test message created successfully');
+                log(`Message ID: ${data[0].id}`);
+
+            } catch (error) {
+                log(`❌ Failed to create test message: ${error.message}`);
+            }
+        }
+
+        async function testMessageUpdate() {
+            try {
+                log('✏️ Testing message update...');
+                
+                const { data, error } = await supabase
+                    .from('messages')
+                    .update({ content: 'Updated test message from real-time test' })
+                    .eq('id', 'test-msg-' + (Date.now() - 5000)) // Use recent ID
+                    .select();
+
+                if (error) throw error;
+
+                log('✅ Test message updated successfully');
+
+            } catch (error) {
+                log(`❌ Failed to update test message: ${error.message}`);
+            }
+        }
+
+        async function testMessageDelete() {
+            try {
+                log('🗑️ Testing message deletion...');
+                
+                const { error } = await supabase
+                    .from('messages')
+                    .delete()
+                    .eq('id', 'test-msg-' + (Date.now() - 10000));
+
+                if (error) throw error;
+
+                log('✅ Test message deleted successfully');
+
+            } catch (error) {
+                log(`❌ Failed to delete test message: ${error.message}`);
+            }
+        }
+
+        async function testChannelCreate() {
+            try {
+                log('📂 Testing channel creation...');
+                
+                // First, ensure test guild exists
+                const testGuildId = 'test-guild-456';
+                const { data: guildData, error: guildError } = await supabase
+                    .from('guilds')
+                    .select('id')
+                    .eq('id', testGuildId)
+                    .single();
+
+                if (guildError && guildError.code === 'PGRST116') {
+                    // Guild doesn't exist, create it
+                    const { data: newGuild, error: createGuildError } = await supabase
+                        .from('guilds')
+                        .insert({
+                            id: testGuildId,
+                            name: 'Test Real-time Guild',
+                            owner_id: 'test-user-789'
+                        })
+                        .select()
+                        .single();
+
+                    if (createGuildError) throw createGuildError;
+                    log('✅ Test guild created for channel test');
+                }
+                
+                const testChannel = {
+                    id: 'test-chan-' + Date.now(),
+                    guild_id: testGuildId,
+                    name: 'real-time-test-channel',
+                    type: 0,
+                    position: 0
+                };
+
+                const { data, error } = await supabase
+                    .from('channels')
+                    .insert(testChannel)
+                    .select();
+
+                if (error) throw error;
+
+                log('✅ Test channel created successfully');
+                log(`Channel ID: ${data[0].id}`);
+
+            } catch (error) {
+                log(`❌ Failed to create test channel: ${error.message}`);
+            }
+        }
+
+        async function testChannelUpdate() {
+            try {
+                log('✏️ Testing channel update...');
+                
+                const { error } = await supabase
+                    .from('channels')
+                    .update({ name: 'Updated real-time test channel' })
+                    .eq('id', 'test-chan-' + (Date.now() - 5000))
+                    .select();
+
+                if (error) throw error;
+
+                log('✅ Test channel updated successfully');
+
+            } catch (error) {
+                log(`❌ Failed to update test channel: ${error.message}`);
+            }
+        }
+
+        async function testChannelDelete() {
+            try {
+                log('🗑️ Testing channel deletion...');
+                
+                const { error } = await supabase
+                    .from('channels')
+                    .delete()
+                    .eq('id', 'test-chan-' + (Date.now() - 10000));
+
+                if (error) throw error;
+
+                log('✅ Test channel deleted successfully');
+
+            } catch (error) {
+                log(`❌ Failed to delete test channel: ${error.message}`);
+            }
+        }
+
+        async function testPresenceUpdate() {
+            try {
+                log('👤 Testing presence update...');
+                
+                if (!realtimeClient?.presenceChannel) {
+                    log('❌ Presence channel not initialized');
+                    return;
+                }
+
+                await realtimeClient.presenceChannel.send({
+                    type: 'broadcast',
+                    event: 'presence',
+                    payload: {
+                        user_id: 'test-user-' + Date.now(),
+                        channel_id: 'test-channel-123',
+                        guild_id: 'test-guild-456',
+                        status: 'online',
+                        member: { username: 'TestUser', discriminator: '1234' }
+                    }
+                });
+
+                log('✅ Presence update sent successfully');
+
+            } catch (error) {
+                log(`❌ Failed to send presence update: ${error.message}`);
+            }
+        }
+
+        async function testTypingStart() {
+            try {
+                log('⌨️ Testing typing start...');
+                
+                if (!realtimeClient?.presenceChannel) {
+                    log('❌ Presence channel not initialized');
+                    return;
+                }
+
+                await realtimeClient.presenceChannel.send({
+                    type: 'broadcast',
+                    event: 'typing',
+                    payload: {
+                        user_id: 'test-user-' + Date.now(),
+                        channel_id: 'test-channel-123',
+                        timestamp: Date.now() / 1000,
+                        member: { username: 'TestUser', discriminator: '1234' }
+                    }
+                });
+
+                log('✅ Typing event sent successfully');
+
+            } catch (error) {
+                log(`❌ Failed to send typing event: ${error.message}`);
+            }
+        }
+
+        function clearPresence() {
+            presenceState.clear();
+            updatePresenceList();
+            log('🧹 Presence list cleared');
+        }
+
+        async function testSettingsUpdate() {
+            try {
+                log('⚙️ Testing settings update...');
+                
+                const testSettings = {
+                    locale: 'fr-FR',
+                    theme: 'Gold',
+                    accent_color: '#FF6B6B',
+                    animate_gifs: 'never',
+                    updated_at: new Date().toISOString()
+                };
+
+                const { data, error } = await supabase
+                    .from('user_preferences')
+                    .upsert(testSettings)
+                    .eq('user_id', 'test-user-settings')
+                    .select();
+
+                if (error) throw error;
+
+                log('✅ Settings update sent successfully');
+                log(`Settings: ${JSON.stringify(testSettings)}`);
+
+            } catch (error) {
+                log(`❌ Failed to update settings: ${error.message}`);
+            }
+        }
+
+        async function simulateRemoteSettings() {
+            try {
+                log('🔄 Simulating remote settings change...');
+                
+                // Simulate another user updating settings from a different browser
+                const remoteSettings = {
+                    locale: 'es-ES',
+                    theme: 'Light',
+                    accent_color: '#4CAF50',
+                    animate_gifs: 'always',
+                    updated_at: new Date().toISOString()
+                };
+
+                const { error } = await supabase
+                    .from('user_preferences')
+                    .upsert(remoteSettings)
+                    .eq('user_id', 'test-user-settings')
+                    .select();
+
+                if (error) throw error;
+
+                log('✅ Remote settings change simulated');
+                log(`Remote settings: ${JSON.stringify(remoteSettings)}`);
+
+            } catch (error) {
+                log(`❌ Failed to simulate remote settings: ${error.message}`);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('testConnection').addEventListener('click', testConnection);
+        document.getElementById('initRealtime').addEventListener('click', initializeRealtime);
+        document.getElementById('destroyRealtime').addEventListener('click', destroyRealtime);
+        
+        document.getElementById('testMessageCreate').addEventListener('click', testMessageCreate);
+        document.getElementById('testMessageUpdate').addEventListener('click', testMessageUpdate);
+        document.getElementById('testMessageDelete').addEventListener('click', testMessageDelete);
+        
+        document.getElementById('testChannelCreate').addEventListener('click', testChannelCreate);
+        document.getElementById('testChannelUpdate').addEventListener('click', testChannelUpdate);
+        document.getElementById('testChannelDelete').addEventListener('click', testChannelDelete);
+        
+        document.getElementById('testPresenceUpdate').addEventListener('click', testPresenceUpdate);
+        document.getElementById('testTypingStart').addEventListener('click', testTypingStart);
+        document.getElementById('clearPresence').addEventListener('click', clearPresence);
+        
+        document.getElementById('testSettingsUpdate').addEventListener('click', testSettingsUpdate);
+        document.getElementById('simulateRemoteSettings').addEventListener('click', simulateRemoteSettings);
+        
+        document.getElementById('clearLog').addEventListener('click', () => {
+            output.textContent = '';
+        });
+
+        // Initialize
+        log('🔄 Real-time Features Test Suite loaded');
+        log('Click "Test Real-time Connection" to begin');
+    </script>
+</body>
+</html>

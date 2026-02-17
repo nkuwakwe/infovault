@@ -1,4 +1,6 @@
 // Async in order to account for maybe some day Spacebar supporting account data...
+import { getUserPreferences, updateUserPreferences, createUserPreferences } from '../../supabaseData.js';
+
 export const enum AnimateTristateValue {
 	Always = "always",
 	OnlyOnHover = "hover",
@@ -42,12 +44,85 @@ export class UserPreferences {
 	}
 }
 
+// Get current user ID (this should be available from auth context)
+function getCurrentUserId(): string {
+	// TODO: Get from actual auth context when available
+	// For now, use a fallback or get from localStorage
+	return localStorage.getItem('currentUserId') || 'anonymous-user';
+}
+
 export async function getPreferences(): Promise<UserPreferences> {
-	return new UserPreferences(JSON.parse(localStorage.getItem("userPreferences") || "{}"));
+	try {
+		const userId = getCurrentUserId();
+		
+		// Try to get from Supabase first
+		const supabasePrefs = await getUserPreferences(userId);
+		if (supabasePrefs) {
+			console.log('Loaded user preferences from Supabase');
+			return new UserPreferences(supabasePrefs);
+		}
+		
+		// Fallback to localStorage
+		console.log('Loading user preferences from localStorage (fallback)');
+		const localPrefs = new UserPreferences(JSON.parse(localStorage.getItem("userPreferences") || "{}"));
+		
+		// Save to Supabase for future use
+		await savePreferencesToSupabase(localPrefs);
+		
+		return localPrefs;
+	} catch (error) {
+		console.error('Failed to get preferences from Supabase, using localStorage:', error);
+		// Fallback to localStorage
+		return new UserPreferences(JSON.parse(localStorage.getItem("userPreferences") || "{}"));
+	}
 }
 
 export async function setPreferences(prefs: UserPreferences): Promise<void> {
-	localStorage.setItem("userPreferences", JSON.stringify(prefs));
+	try {
+		// Save to localStorage for offline access
+		localStorage.setItem("userPreferences", JSON.stringify(prefs));
+		
+		// Save to Supabase
+		await savePreferencesToSupabase(prefs);
+		
+		console.log('User preferences saved to both localStorage and Supabase');
+	} catch (error) {
+		console.error('Failed to save preferences to Supabase, saving to localStorage only:', error);
+		// Fallback to localStorage only
+		localStorage.setItem("userPreferences", JSON.stringify(prefs));
+	}
+}
+
+async function savePreferencesToSupabase(prefs: UserPreferences): Promise<void> {
+	try {
+		const userId = getCurrentUserId();
+		
+		// Convert to Supabase format
+		const supabasePrefs = {
+			locale: prefs.locale,
+			theme: prefs.theme,
+			accent_color: prefs.accentColor,
+			animate_gifs: prefs.animateGifs,
+			animate_icons: prefs.animateIcons,
+			volume: 50, // Default value - could be added to UserPreferences class
+			notisound: 'default' // Default value - could be added to UserPreferences class
+		};
+		
+		// Try to update first, then create if it doesn't exist
+		let result = await updateUserPreferences(userId, supabasePrefs);
+		if (!result) {
+			result = await createUserPreferences(userId, supabasePrefs);
+		}
+		
+		if (result) {
+			console.log('User preferences saved to Supabase successfully');
+		} else {
+			throw new Error('Failed to save preferences to Supabase');
+		}
+	} catch (error) {
+		console.error('Error saving preferences to Supabase:', error);
+		throw error;
+	}
 }
 
 //region Migration from untyped storage

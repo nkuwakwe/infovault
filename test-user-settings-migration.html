@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Settings Migration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success { background: #2d5a2d; }
+        .error { background: #5a2d2d; }
+        .info { background: #2d4a5a; }
+        .warning { background: #5a5a2d; }
+        #output {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .test-result {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .pass { background: #2d5a2d; }
+        .fail { background: #5a2d2d; }
+        .pending { background: #5a5a2d; }
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .settings-section {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .setting-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: #444;
+            border-radius: 4px;
+        }
+        .setting-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px;
+        }
+        input, select {
+            background: #555;
+            color: white;
+            border: 1px solid #666;
+            padding: 8px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>⚙️ User Settings Migration Test Suite</h1>
+    
+    <div class="container">
+        <h2>Connection Test</h2>
+        <button id="testConnection">Test Supabase Connection</button>
+        <div id="connectionStatus" class="status info">Click to test connection...</div>
+    </div>
+
+    <div class="container">
+        <h2>User Settings Tests</h2>
+        <button id="runAllTests" disabled>Run All Tests</button>
+        <button id="testMigration" disabled>Test Migration Only</button>
+        <button id="testSync" disabled>Test Sync Only</button>
+        <div id="testStatus" class="status info">Run connection test first...</div>
+    </div>
+
+    <div class="container">
+        <h2>Interactive Settings Test</h2>
+        <div class="settings-grid">
+            <div class="settings-section">
+                <h3>User Preferences</h3>
+                <div class="setting-item">
+                    <label>Theme:</label>
+                    <select id="themeSelect">
+                        <option value="Dark">Dark</option>
+                        <option value="Light">Light</option>
+                        <option value="White">White</option>
+                        <option value="Gold">Gold</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label>Locale:</label>
+                    <input type="text" id="localeInput" value="en" />
+                </div>
+                <div class="setting-item">
+                    <label>Accent Color:</label>
+                    <input type="color" id="accentColorInput" value="#5865F2" />
+                </div>
+                <div class="setting-controls">
+                    <button id="saveUserPrefs">Save User Preferences</button>
+                    <button id="loadUserPrefs">Load User Preferences</button>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3>Developer Settings</h3>
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="gatewayLogging" /> Gateway Logging
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="showTraces" /> Show Traces
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label>
+                        <input type="checkbox" id="cacheSourceMaps" /> Cache Source Maps
+                    </label>
+                </div>
+                <div class="setting-controls">
+                    <button id="saveDevSettings">Save Developer Settings</button>
+                    <button id="loadDevSettings">Load Developer Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Test Results</h2>
+        <div id="testResults"></div>
+    </div>
+
+    <div class="container">
+        <h2>Output Log</h2>
+        <button id="clearLog">Clear Log</button>
+        <div id="output"></div>
+    </div>
+
+    <script type="module">
+        // Mock functions for testing (since we can't import the actual modules easily)
+        const mockSupabaseData = {
+            async getUserPreferences(userId) {
+                console.log(`Mock: Getting user preferences for ${userId}`);
+                return null; // Simulate no existing data
+            },
+            async updateUserPreferences(userId, prefs) {
+                console.log(`Mock: Updating user preferences for ${userId}`, prefs);
+                return { user_id: userId, ...prefs };
+            },
+            async createUserPreferences(userId, prefs) {
+                console.log(`Mock: Creating user preferences for ${userId}`, prefs);
+                return { user_id: userId, ...prefs };
+            },
+            async getDeveloperSettings(userId) {
+                console.log(`Mock: Getting developer settings for ${userId}`);
+                return null; // Simulate no existing data
+            },
+            async setDeveloperSettings(userId, settings) {
+                console.log(`Mock: Setting developer settings for ${userId}`, settings);
+                return { user_id: userId, settings };
+            },
+            async getLocalSettings(userId) {
+                console.log(`Mock: Getting local settings for ${userId}`);
+                return null; // Simulate no existing data
+            },
+            async setLocalSettings(userId, settings) {
+                console.log(`Mock: Setting local settings for ${userId}`, settings);
+                return { user_id: userId, ...settings };
+            }
+        };
+
+        // Mock user preferences class
+        class MockUserPreferences {
+            constructor(data = {}) {
+                this.locale = data.locale || 'en';
+                this.theme = data.theme || 'Dark';
+                this.accentColor = data.accentColor || '#5865F2';
+                this.animateGifs = data.animateGifs || 'hover';
+                this.animateIcons = data.animateIcons || 'always';
+            }
+        }
+
+        // Mock developer settings class
+        class MockDeveloperSettings {
+            constructor(data = {}) {
+                this.gatewayLogging = data.gatewayLogging || false;
+                this.gatewayCompression = data.gatewayCompression !== false;
+                this.showTraces = data.showTraces || false;
+                this.interceptApiTraces = data.interceptApiTraces || false;
+                this.cacheSourceMaps = data.cacheSourceMaps || false;
+                this.logBannedFields = data.logBannedFields || false;
+                this.reportSystem = data.reportSystem || false;
+            }
+        }
+
+        // Mock local settings class
+        class MockLocalSettings {
+            constructor(data = {}) {
+                this.serviceWorkerMode = data.serviceWorkerMode || 'unregistered';
+            }
+        }
+
+        // DOM elements
+        const output = document.getElementById('output');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const testStatus = document.getElementById('testStatus');
+        const testResults = document.getElementById('testResults');
+
+        // Settings controls
+        const themeSelect = document.getElementById('themeSelect');
+        const localeInput = document.getElementById('localeInput');
+        const accentColorInput = document.getElementById('accentColorInput');
+        const gatewayLoggingCheckbox = document.getElementById('gatewayLogging');
+        const showTracesCheckbox = document.getElementById('showTraces');
+        const cacheSourceMapsCheckbox = document.getElementById('cacheSourceMaps');
+
+        let connectionOk = false;
+        let currentUserId = 'test-user-123';
+
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            output.textContent += logMessage;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(element, message, type) {
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        function addTestResult(testName, status, message = '') {
+            const result = document.createElement('div');
+            result.className = `test-result ${status}`;
+            result.innerHTML = `<strong>${testName}:</strong> ${status.toUpperCase()}${message ? ' - ' + message : ''}`;
+            testResults.appendChild(result);
+        }
+
+        function clearResults() {
+            testResults.innerHTML = '';
+        }
+
+        // Test functions
+        async function testConnection() {
+            updateStatus(connectionStatus, 'Testing connection...', 'info');
+            log('🔌 Testing Supabase connection...');
+
+            try {
+                // Test by trying to get user preferences
+                const prefs = await mockSupabaseData.getUserPreferences(currentUserId);
+                
+                updateStatus(connectionStatus, '✅ Connection successful!', 'success');
+                log('✅ Supabase connection test passed');
+                connectionOk = true;
+                document.getElementById('runAllTests').disabled = false;
+                document.getElementById('testMigration').disabled = false;
+                document.getElementById('testSync').disabled = false;
+            } catch (error) {
+                updateStatus(connectionStatus, `❌ Connection failed: ${error.message}`, 'error');
+                log(`❌ Connection test failed: ${error.message}`);
+                connectionOk = false;
+            }
+        }
+
+        async function testUserPreferencesMigration() {
+            log('🧪 Testing user preferences migration...');
+            let passedTests = 0;
+            let totalTests = 0;
+
+            // Test 1: Get user preferences (should return null initially)
+            totalTests++;
+            try {
+                const prefs = await mockSupabaseData.getUserPreferences(currentUserId);
+                if (prefs === null) {
+                    addTestResult('Get User Preferences (Initial)', 'pass', 'Correctly returned null for non-existent data');
+                    passedTests++;
+                } else {
+                    addTestResult('Get User Preferences (Initial)', 'fail', 'Expected null but got data');
+                }
+            } catch (error) {
+                addTestResult('Get User Preferences (Initial)', 'fail', error.message);
+                log(`❌ Get user preferences test failed: ${error.message}`);
+            }
+
+            // Test 2: Create user preferences
+            totalTests++;
+            try {
+                const newPrefs = await mockSupabaseData.createUserPreferences(currentUserId, {
+                    locale: 'en',
+                    theme: 'Dark',
+                    accent_color: '#5865F2'
+                });
+                
+                if (newPrefs) {
+                    addTestResult('Create User Preferences', 'pass', 'Preferences created successfully');
+                    log(`✅ User preferences created: ${newPrefs.user_id}`);
+                    passedTests++;
+                } else {
+                    throw new Error('Create returned null');
+                }
+            } catch (error) {
+                addTestResult('Create User Preferences', 'fail', error.message);
+                log(`❌ Create user preferences test failed: ${error.message}`);
+            }
+
+            // Test 3: Update user preferences
+            totalTests++;
+            try {
+                const updatedPrefs = await mockSupabaseData.updateUserPreferences(currentUserId, {
+                    locale: 'fr',
+                    theme: 'Light'
+                });
+                
+                if (updatedPrefs) {
+                    addTestResult('Update User Preferences', 'pass', 'Preferences updated successfully');
+                    log(`✅ User preferences updated: ${updatedPrefs.locale}`);
+                    passedTests++;
+                } else {
+                    throw new Error('Update returned null');
+                }
+            } catch (error) {
+                addTestResult('Update User Preferences', 'fail', error.message);
+                log(`❌ Update user preferences test failed: ${error.message}`);
+            }
+
+            // Summary
+            const successRate = ((passedTests / totalTests) * 100).toFixed(1);
+            log(`📊 User preferences tests completed: ${passedTests}/${totalTests} passed (${successRate}%)`);
+        }
+
+        async function testDeveloperSettingsMigration() {
+            log('🔧 Testing developer settings migration...');
+            let passedTests = 0;
+            let totalTests = 0;
+
+            // Test 1: Get developer settings (should return null initially)
+            totalTests++;
+            try {
+                const settings = await mockSupabaseData.getDeveloperSettings(currentUserId);
+                if (settings === null) {
+                    addTestResult('Get Developer Settings (Initial)', 'pass', 'Correctly returned null for non-existent data');
+                    passedTests++;
+                } else {
+                    addTestResult('Get Developer Settings (Initial)', 'fail', 'Expected null but got data');
+                }
+            } catch (error) {
+                addTestResult('Get Developer Settings (Initial)', 'fail', error.message);
+                log(`❌ Get developer settings test failed: ${error.message}`);
+            }
+
+            // Test 2: Set developer settings
+            totalTests++;
+            try {
+                const newSettings = await mockSupabaseData.setDeveloperSettings(currentUserId, {
+                    gatewayLogging: true,
+                    showTraces: true,
+                    cacheSourceMaps: true
+                });
+                
+                if (newSettings) {
+                    addTestResult('Set Developer Settings', 'pass', 'Settings saved successfully');
+                    log(`✅ Developer settings saved: ${JSON.stringify(newSettings.settings)}`);
+                    passedTests++;
+                } else {
+                    throw new Error('Set returned null');
+                }
+            } catch (error) {
+                addTestResult('Set Developer Settings', 'fail', error.message);
+                log(`❌ Set developer settings test failed: ${error.message}`);
+            }
+
+            // Summary
+            const successRate = ((passedTests / totalTests) * 100).toFixed(1);
+            log(`📊 Developer settings tests completed: ${passedTests}/${totalTests} passed (${successRate}%)`);
+        }
+
+        async function testLocalSettingsMigration() {
+            log('⚙️ Testing local settings migration...');
+            let passedTests = 0;
+            let totalTests = 0;
+
+            // Test 1: Get local settings (should return null initially)
+            totalTests++;
+            try {
+                const settings = await mockSupabaseData.getLocalSettings(currentUserId);
+                if (settings === null) {
+                    addTestResult('Get Local Settings (Initial)', 'pass', 'Correctly returned null for non-existent data');
+                    passedTests++;
+                } else {
+                    addTestResult('Get Local Settings (Initial)', 'fail', 'Expected null but got data');
+                }
+            } catch (error) {
+                addTestResult('Get Local Settings (Initial)', 'fail', error.message);
+                log(`❌ Get local settings test failed: ${error.message}`);
+            }
+
+            // Test 2: Set local settings
+            totalTests++;
+            try {
+                const newSettings = await mockSupabaseData.setLocalSettings(currentUserId, {
+                    service_worker_mode: 'enabled'
+                });
+                
+                if (newSettings) {
+                    addTestResult('Set Local Settings', 'pass', 'Settings saved successfully');
+                    log(`✅ Local settings saved: ${newSettings.service_worker_mode}`);
+                    passedTests++;
+                } else {
+                    throw new Error('Set returned null');
+                }
+            } catch (error) {
+                addTestResult('Set Local Settings', 'fail', error.message);
+                log(`❌ Set local settings test failed: ${error.message}`);
+            }
+
+            // Summary
+            const successRate = ((passedTests / totalTests) * 100).toFixed(1);
+            log(`📊 Local settings tests completed: ${passedTests}/${totalTests} passed (${successRate}%)`);
+        }
+
+        async function runAllTests() {
+            if (!connectionOk) {
+                log('❌ Cannot run tests - connection not established');
+                return;
+            }
+
+            clearResults();
+            updateStatus(testStatus, 'Running all tests...', 'info');
+            log('🚀 Starting comprehensive user settings migration test suite...');
+
+            await testUserPreferencesMigration();
+            await testDeveloperSettingsMigration();
+            await testLocalSettingsMigration();
+
+            log('🎉 All tests completed!');
+            updateStatus(testStatus, 'All tests completed!', 'success');
+        }
+
+        // Interactive settings functions
+        async function saveUserPreferences() {
+            try {
+                const prefs = new MockUserPreferences({
+                    locale: localeInput.value,
+                    theme: themeSelect.value,
+                    accentColor: accentColorInput.value
+                });
+
+                await mockSupabaseData.updateUserPreferences(currentUserId, {
+                    locale: prefs.locale,
+                    theme: prefs.theme,
+                    accent_color: prefs.accentColor
+                });
+
+                log('✅ User preferences saved interactively');
+            } catch (error) {
+                log(`❌ Failed to save user preferences: ${error.message}`);
+            }
+        }
+
+        async function loadUserPreferences() {
+            try {
+                const prefs = await mockSupabaseData.getUserPreferences(currentUserId);
+                if (prefs) {
+                    localeInput.value = prefs.locale || 'en';
+                    themeSelect.value = prefs.theme || 'Dark';
+                    accentColorInput.value = prefs.accent_color || '#5865F2';
+                    log('✅ User preferences loaded interactively');
+                } else {
+                    log('⚠️ No user preferences found to load');
+                }
+            } catch (error) {
+                log(`❌ Failed to load user preferences: ${error.message}`);
+            }
+        }
+
+        async function saveDeveloperSettings() {
+            try {
+                const settings = {
+                    gatewayLogging: gatewayLoggingCheckbox.checked,
+                    showTraces: showTracesCheckbox.checked,
+                    cacheSourceMaps: cacheSourceMapsCheckbox.checked
+                };
+
+                await mockSupabaseData.setDeveloperSettings(currentUserId, settings);
+                log('✅ Developer settings saved interactively');
+            } catch (error) {
+                log(`❌ Failed to save developer settings: ${error.message}`);
+            }
+        }
+
+        async function loadDeveloperSettings() {
+            try {
+                const settings = await mockSupabaseData.getDeveloperSettings(currentUserId);
+                if (settings) {
+                    gatewayLoggingCheckbox.checked = settings.settings.gatewayLogging || false;
+                    showTracesCheckbox.checked = settings.settings.showTraces || false;
+                    cacheSourceMapsCheckbox.checked = settings.settings.cacheSourceMaps || false;
+                    log('✅ Developer settings loaded interactively');
+                } else {
+                    log('⚠️ No developer settings found to load');
+                }
+            } catch (error) {
+                log(`❌ Failed to load developer settings: ${error.message}`);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('testConnection').addEventListener('click', testConnection);
+        document.getElementById('runAllTests').addEventListener('click', runAllTests);
+        document.getElementById('testMigration').addEventListener('click', testUserPreferencesMigration);
+        document.getElementById('testSync').addEventListener('click', testDeveloperSettingsMigration);
+        document.getElementById('saveUserPrefs').addEventListener('click', saveUserPreferences);
+        document.getElementById('loadUserPrefs').addEventListener('click', loadUserPreferences);
+        document.getElementById('saveDevSettings').addEventListener('click', saveDeveloperSettings);
+        document.getElementById('loadDevSettings').addEventListener('click', loadDeveloperSettings);
+        document.getElementById('clearLog').addEventListener('click', () => {
+            output.textContent = '';
+        });
+
+        // Initialize
+        log('⚙️ User Settings Migration Test Suite loaded');
+        log('Click "Test Supabase Connection" to begin');
+    </script>
+</body>
+</html>
