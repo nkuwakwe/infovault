@@ -1207,6 +1207,29 @@ export async function uploadChannelIcon(channelId: string, file: File): Promise<
 	}
 }
 
+// Delete channel from database
+export async function deleteChannelFromDatabase(channelId: string): Promise<boolean> {
+	try {
+		const supabase = await getSupabaseClient();
+		
+		const { error } = await supabase
+			.from('channels')
+			.delete()
+			.eq('id', channelId); // Use id column (Discord channel ID)
+
+		if (error) {
+			console.error('Failed to delete channel from database:', error);
+			return false;
+		}
+
+		console.log('Channel successfully deleted from database:', channelId);
+		return true;
+	} catch (error) {
+		console.error('Error deleting channel from database:', error);
+		return false;
+	}
+}
+
 // Upload guild banner to Supabase storage
 export async function uploadGuildBanner(guildId: string, file: File): Promise<string | null> {
 	try {
@@ -1839,6 +1862,7 @@ export const supabaseData = {
 	getChannelIcon,
 	uploadChannelIcon,
 	updateChannelIcon,
+	deleteChannelFromDatabase,
 	// Message functions
 	createMessage,
 	getMessages,

@@ -31,7 +31,7 @@ import {Direct} from "./direct.js";
 import {ProgessiveDecodeJSON} from "./utils/progessiveLoad.js";
 import {NotificationHandler} from "./notificationHandler.js";
 import {Command} from "./interactions/commands.js";
-import {getChannelName, updateChannelName, getChannelIcon, uploadChannelIcon, updateChannelIcon} from "./supabaseData.js";
+import {getChannelName, updateChannelName, getChannelIcon, uploadChannelIcon, updateChannelIcon, deleteChannelFromDatabase} from "./supabaseData.js";
 
 class Channel extends SnowFlake {
 	editing!: Message | null;
@@ -175,7 +175,7 @@ class Channel extends SnowFlake {
 		);
 
 		this.contextmenu.addButton(
-			() => I18n.guild.updateIcon(),
+			() => "Update Channel Icon",
 			function (this: Channel) {
 				this.updateChannelIcon();
 			},
@@ -663,7 +663,7 @@ class Channel extends SnowFlake {
 	 * Update channel icon in both local and Supabase
 	 */
 	async updateChannelIcon(): Promise<void> {
-		const dialog = new Dialog(I18n.guild.updateIcon());
+		const dialog = new Dialog("Update Channel Icon");
 		
 		// Create file input
 		const fileInput = document.createElement('input');
@@ -1468,6 +1468,18 @@ class Channel extends SnowFlake {
 		fetch(this.info.api + "/channels/" + this.id, {
 			method: "DELETE",
 			headers: this.headers,
+		}).then(async (response) => {
+			if (response.ok) {
+				// Delete from Supabase database
+				const dbDeleteSuccess = await deleteChannelFromDatabase(this.id);
+				if (!dbDeleteSuccess) {
+					console.warn('Channel deleted from API but failed to delete from database');
+				}
+			} else {
+				console.error('Failed to delete channel from API');
+			}
+		}).catch(error => {
+			console.error('Error deleting channel:', error);
 		});
 	}
 	setReplying(message: Message) {
