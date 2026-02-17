@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Channel Migration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success { background: #2d5a2d; }
+        .error { background: #5a2d2d; }
+        .info { background: #2d4a5a; }
+        .warning { background: #5a5a2d; }
+        #output {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .test-result {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .pass { background: #2d5a2d; }
+        .fail { background: #5a2d2d; }
+        .pending { background: #5a5a2d; }
+    </style>
+</head>
+<body>
+    <h1>🔄 Channel Migration Test Suite</h1>
+    
+    <div class="container">
+        <h2>Connection Test</h2>
+        <button id="testConnection">Test Supabase Connection</button>
+        <div id="connectionStatus" class="status info">Click to test connection...</div>
+    </div>
+
+    <div class="container">
+        <h2>Channel Migration Tests</h2>
+        <button id="runAllTests" disabled>Run All Tests</button>
+        <button id="testMigration" disabled>Test Migration Only</button>
+        <button id="testSync" disabled>Test Sync Only</button>
+        <div id="testStatus" class="status info">Run connection test first...</div>
+    </div>
+
+    <div class="container">
+        <h2>Test Results</h2>
+        <div id="testResults"></div>
+    </div>
+
+    <div class="container">
+        <h2>Output Log</h2>
+        <button id="clearLog">Clear Log</button>
+        <div id="output"></div>
+    </div>
+
+    <script type="module">
+        // Import required modules
+        import { getGuildChannels, createChannel, getChannelName, updateChannelName, channelExistsByDiscordId } from './src/webpage/supabaseData.js';
+        import { needsChannelMigration, migrateAllChannels, syncChannelData, runChannelMigration } from './src/webpage/utils/channelMigration.js';
+
+        // Mock local user for testing
+        const mockLocalUser = {
+            channelids: new Map([
+                ['test-channel-1', {
+                    id: 'test-channel-1',
+                    guild_id: 'test-guild-1',
+                    name: 'Test Channel 1',
+                    type: 0,
+                    topic: 'Test topic',
+                    nsfw: false,
+                    position: 0,
+                    rate_limit_per_user: 0,
+                    lastmessageid: '123456789',
+                    lastpin: null,
+                    icon: null,
+                    permission_overwritesar: []
+                }],
+                ['test-channel-2', {
+                    id: 'test-channel-2',
+                    guild_id: 'test-guild-1',
+                    name: 'Test Channel 2',
+                    type: 0,
+                    topic: 'Another test topic',
+                    nsfw: false,
+                    position: 1,
+                    rate_limit_per_user: 0,
+                    lastmessageid: '987654321',
+                    lastpin: null,
+                    icon: null,
+                    permission_overwritesar: []
+                }]
+            ])
+        };
+
+        let connectionOk = false;
+
+        // DOM elements
+        const output = document.getElementById('output');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const testStatus = document.getElementById('testStatus');
+        const testResults = document.getElementById('testResults');
+        const testConnectionBtn = document.getElementById('testConnection');
+        const runAllTestsBtn = document.getElementById('runAllTests');
+        const testMigrationBtn = document.getElementById('testMigration');
+        const testSyncBtn = document.getElementById('testSync');
+        const clearLogBtn = document.getElementById('clearLog');
+
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            output.textContent += logMessage;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(element, message, type) {
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        function addTestResult(testName, status, message = '') {
+            const result = document.createElement('div');
+            result.className = `test-result ${status}`;
+            result.innerHTML = `<strong>${testName}:</strong> ${status.toUpperCase()}${message ? ' - ' + message : ''}`;
+            testResults.appendChild(result);
+        }
+
+        function clearResults() {
+            testResults.innerHTML = '';
+        }
+
+        // Test functions
+        async function testConnection() {
+            updateStatus(connectionStatus, 'Testing connection...', 'info');
+            log('🔌 Testing Supabase connection...');
+
+            try {
+                // Test by trying to fetch channels (will return empty if no channels exist)
+                const channels = await getGuildChannels('test-guild-1');
+                
+                if (Array.isArray(channels)) {
+                    updateStatus(connectionStatus, '✅ Connection successful!', 'success');
+                    log('✅ Supabase connection test passed');
+                    connectionOk = true;
+                    runAllTestsBtn.disabled = false;
+                    testMigrationBtn.disabled = false;
+                    testSyncBtn.disabled = false;
+                } else {
+                    throw new Error('Unexpected response format');
+                }
+            } catch (error) {
+                updateStatus(connectionStatus, `❌ Connection failed: ${error.message}`, 'error');
+                log(`❌ Connection test failed: ${error.message}`);
+                connectionOk = false;
+            }
+        }
+
+        async function testChannelMigration() {
+            if (!connectionOk) {
+                log('❌ Cannot run migration tests - connection not established');
+                return;
+            }
+
+            log('🧪 Running channel migration tests...');
+            let passedTests = 0;
+            let totalTests = 0;
+
+            // Test 1: Check migration needed
+            totalTests++;
+            try {
+                const needsMigration = await needsChannelMigration(mockLocalUser);
+                addTestResult('Migration Check', 'pass', `Needs migration: ${needsMigration}`);
+                log(`✅ Migration check: ${needsMigration ? 'Migration needed' : 'No migration needed'}`);
+                passedTests++;
+            } catch (error) {
+                addTestResult('Migration Check', 'fail', error.message);
+                log(`❌ Migration check failed: ${error.message}`);
+            }
+
+            // Test 2: Channel existence check
+            totalTests++;
+            try {
+                const exists = await channelExistsByDiscordId('test-channel-1');
+                addTestResult('Channel Existence Check', 'pass', `Channel exists: ${exists}`);
+                log(`✅ Channel existence check: test-channel-1 ${exists ? 'exists' : 'does not exist'}`);
+                passedTests++;
+            } catch (error) {
+                addTestResult('Channel Existence Check', 'fail', error.message);
+                log(`❌ Channel existence check failed: ${error.message}`);
+            }
+
+            // Test 3: Create channel
+            totalTests++;
+            try {
+                const newChannel = await createChannel({
+                    id: 'test-new-channel',
+                    guild_id: 'test-guild-1',
+                    name: 'Test New Channel',
+                    type: 0,
+                    topic: 'Created during test',
+                    permission_overwrites: []
+                });
+                
+                if (newChannel) {
+                    addTestResult('Create Channel', 'pass', 'Channel created successfully');
+                    log(`✅ Channel creation test passed: ${newChannel.id}`);
+                    passedTests++;
+                } else {
+                    throw new Error('Channel creation returned null');
+                }
+            } catch (error) {
+                addTestResult('Create Channel', 'fail', error.message);
+                log(`❌ Channel creation test failed: ${error.message}`);
+            }
+
+            // Test 4: Get channel name
+            totalTests++;
+            try {
+                const channelName = await getChannelName('test-new-channel');
+                addTestResult('Get Channel Name', 'pass', `Name: ${channelName}`);
+                log(`✅ Get channel name test passed: ${channelName}`);
+                passedTests++;
+            } catch (error) {
+                addTestResult('Get Channel Name', 'fail', error.message);
+                log(`❌ Get channel name test failed: ${error.message}`);
+            }
+
+            // Test 5: Update channel name
+            totalTests++;
+            try {
+                const updateSuccess = await updateChannelName('test-new-channel', 'Updated Test Channel');
+                if (updateSuccess) {
+                    addTestResult('Update Channel Name', 'pass', 'Name updated successfully');
+                    log('✅ Update channel name test passed');
+                    passedTests++;
+                } else {
+                    throw new Error('Update returned false');
+                }
+            } catch (error) {
+                addTestResult('Update Channel Name', 'fail', error.message);
+                log(`❌ Update channel name test failed: ${error.message}`);
+            }
+
+            // Summary
+            const successRate = ((passedTests / totalTests) * 100).toFixed(1);
+            updateStatus(testStatus, `Tests completed: ${passedTests}/${totalTests} (${successRate}%)`, 
+                        passedTests === totalTests ? 'success' : 'warning');
+            log(`📊 Migration tests completed: ${passedTests}/${totalTests} passed (${successRate}%)`);
+        }
+
+        async function testChannelSync() {
+            if (!connectionOk) {
+                log('❌ Cannot run sync tests - connection not established');
+                return;
+            }
+
+            log('🔄 Running channel sync tests...');
+            let passedTests = 0;
+            let totalTests = 0;
+
+            // Test 1: Get guild channels
+            totalTests++;
+            try {
+                const channels = await getGuildChannels('test-guild-1');
+                addTestResult('Get Guild Channels', 'pass', `Found ${channels.length} channels`);
+                log(`✅ Get guild channels test passed: ${channels.length} channels found`);
+                passedTests++;
+            } catch (error) {
+                addTestResult('Get Guild Channels', 'fail', error.message);
+                log(`❌ Get guild channels test failed: ${error.message}`);
+            }
+
+            // Test 2: Sync channel data
+            totalTests++;
+            try {
+                await syncChannelData('test-guild-1', mockLocalUser);
+                addTestResult('Sync Channel Data', 'pass', 'Sync completed');
+                log('✅ Sync channel data test passed');
+                passedTests++;
+            } catch (error) {
+                addTestResult('Sync Channel Data', 'fail', error.message);
+                log(`❌ Sync channel data test failed: ${error.message}`);
+            }
+
+            // Summary
+            const successRate = ((passedTests / totalTests) * 100).toFixed(1);
+            log(`📊 Sync tests completed: ${passedTests}/${totalTests} passed (${successRate}%)`);
+        }
+
+        async function runAllTests() {
+            if (!connectionOk) {
+                log('❌ Cannot run tests - connection not established');
+                return;
+            }
+
+            clearResults();
+            updateStatus(testStatus, 'Running all tests...', 'info');
+            log('🚀 Starting comprehensive channel migration test suite...');
+
+            await testChannelMigration();
+            await testChannelSync();
+
+            log('🎉 All tests completed!');
+            updateStatus(testStatus, 'All tests completed!', 'success');
+        }
+
+        // Event listeners
+        testConnectionBtn.addEventListener('click', testConnection);
+        runAllTestsBtn.addEventListener('click', runAllTests);
+        testMigrationBtn.addEventListener('click', testChannelMigration);
+        testSyncBtn.addEventListener('click', testChannelSync);
+        clearLogBtn.addEventListener('click', () => {
+            output.textContent = '';
+        });
+
+        // Initialize
+        log('🧪 Channel Migration Test Suite loaded');
+        log('Click "Test Supabase Connection" to begin');
+    </script>
+</body>
+</html>

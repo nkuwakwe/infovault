@@ -31,7 +31,7 @@ import {Direct} from "./direct.js";
 import {ProgessiveDecodeJSON} from "./utils/progessiveLoad.js";
 import {NotificationHandler} from "./notificationHandler.js";
 import {Command} from "./interactions/commands.js";
-import {getChannelName, updateChannelName, getChannelIcon, uploadChannelIcon, updateChannelIcon, deleteChannelFromDatabase} from "./supabaseData.js";
+import {getChannelName, updateChannelName, getChannelIcon, uploadChannelIcon, updateChannelIcon, deleteChannelFromDatabase, createChannel as createChannelInDb, getGuildChannels} from "./supabaseData.js";
 
 class Channel extends SnowFlake {
 	editing!: Message | null;
@@ -1483,37 +1483,158 @@ class Channel extends SnowFlake {
 
 		return div;
 	}
-	createChannel(name: string, type: number) {
-		fetch(this.info.api + "/guilds/" + this.guild.id + "/channels", {
-			method: "POST",
-			headers: this.headers,
-			body: JSON.stringify({
-				name,
-				type,
-				parent_id: this.id,
-				permission_overwrites: [],
-			}),
-		})
-			.then((_) => _.json())
-			.then((_) => this.guild.goToChannelDelay(_.id));
+	async createChannel(name: string, type: number) {
+		try {
+			// Create channel via API first
+			const response = await fetch(this.info.api + "/guilds/" + this.guild.id + "/channels", {
+				method: "POST",
+				headers: this.headers,
+				body: JSON.stringify({
+					name,
+					type,
+					parent_id: this.id,
+					permission_overwrites: [],
+				}),
+			});
+
+			if (!response.ok) {
+				throw new Error(`API request failed: ${response.statusText}`);
+			}
+
+			const channelData = await response.json();
+			
+			// Create channel in Supabase database
+			try {
+				const dbChannel = await createChannelInDb({
+					...channelData,
+					guild_id: this.guild.id
+				});
+				
+				if (dbChannel) {
+					console.log('Channel successfully created in Supabase:', dbChannel.id);
+				} else {
+					console.warn('Channel created in API but failed to create in Supabase');
+				}
+			} catch (dbError) {
+				console.error('Failed to create channel in Supabase:', dbError);
+				// Continue even if Supabase fails - API channel was created successfully
+			}
+
+			// Navigate to the new channel
+			this.guild.goToChannelDelay(channelData.id);
+		} catch (error) {
+			console.error('Failed to create channel:', error);
+			// Could show user notification here
+		}
 	}
-	deleteChannel() {
-		fetch(this.info.api + "/channels/" + this.id, {
-			method: "DELETE",
-			headers: this.headers,
-		}).then(async (response) => {
+	/**
+	 * Sync all channels for this guild from Supabase
+	 * This ensures local channel data matches Supabase data
+	 */
+	static async syncGuildChannelsFromSupabase(guildId: string, localUser: any): Promise<void> {
+		try {
+			console.log('Syncing channels from Supabase for guild:', guildId);
+			
+			// Get channels from Supabase
+			const supabaseChannels = await getGuildChannels(guildId);
+			console.log(`Found ${supabaseChannels.length} channels in Supabase`);
+			
+			// Update local channel instances with Supabase data
+			for (const channelData of supabaseChannels) {
+				const localChannel = localUser.channelids.get(channelData.id);
+				if (localChannel) {
+					// Update existing channel with Supabase data
+					if (channelData.name && channelData.name !== localChannel.name) {
+						localChannel.supabaseName = channelData.name;
+						console.log(`Updated channel ${channelData.id} name from Supabase: "${channelData.name}"`);
+					}
+					
+					if (channelData.icon && channelData.icon !== localChannel.supabaseIconUrl) {
+						localChannel.supabaseIconUrl = channelData.icon;
+						console.log(`Updated channel ${channelData.id} icon from Supabase`);
+					}
+				}
+			}
+			
+			console.log('Channel sync from Supabase completed');
+		} catch (error) {
+			console.error('Failed to sync channels from Supabase:', error);
+		}
+	}
+
+	/**
+	 * Sync this specific channel from Supabase
+	 */
+	async syncFromSupabase(): Promise<void> {
+		try {
+			// Sync name
+			await this.syncNameFromSupabase();
+			
+			// Sync icon
+			await this.syncIconFromSupabase();
+			
+			console.log(`Channel ${this.id} synced from Supabase`);
+		} catch (error) {
+			console.error(`Failed to sync channel ${this.id} from Supabase:`, error);
+		}
+	}
+
+	/**
+	 * Save channel state to Supabase
+	 */
+	async saveToSupabase(): Promise<boolean> {
+		try {
+			const channelData = {
+				id: this.id,
+				guild_id: this.guild_id,
+				name: this.name,
+				type: this.type,
+				topic: this.topic || '',
+				nsfw: this.nsfw || false,
+				position: this.position || 0,
+				parent_id: this.parent_id || null,
+				rate_limit_per_user: this.rate_limit_per_user || 0,
+				last_message_id: this.lastmessageid || null,
+				last_pin_timestamp: this.lastpin || null,
+				icon: this.icon || null,
+				permission_overwrites: this.permission_overwritesar.map(([roleOrUser, perms]) => ({
+					id: roleOrUser instanceof Promise ? 'unknown' : roleOrUser.id,
+					allow: perms.allow.toString(),
+					deny: perms.deny.toString()
+				}))
+			};
+
+			const result = await createChannelInDb(channelData);
+			return result !== null;
+		} catch (error) {
+			console.error('Failed to save channel to Supabase:', error);
+			return false;
+		}
+	}
+
+	async deleteChannel() {
+		try {
+			const response = await fetch(this.info.api + "/channels/" + this.id, {
+				method: "DELETE",
+				headers: this.headers,
+			});
+
 			if (response.ok) {
 				// Delete from Supabase database
-				const dbDeleteSuccess = await deleteChannelFromDatabase(this.id);
-				if (!dbDeleteSuccess) {
-					console.warn('Channel deleted from API but failed to delete from database');
+				try {
+					const dbDeleteSuccess = await deleteChannelFromDatabase(this.id);
+					if (!dbDeleteSuccess) {
+						console.warn('Channel deleted from API but failed to delete from database');
+					}
+				} catch (dbError) {
+					console.error('Failed to delete channel from database:', dbError);
 				}
 			} else {
-				console.error('Failed to delete channel from API');
+				console.error('Failed to delete channel from API:', response.statusText);
 			}
-		}).catch(error => {
+		} catch (error) {
 			console.error('Error deleting channel:', error);
-		});
+		}
 	}
 	setReplying(message: Message) {
 		if (this.replyingto?.div) {
