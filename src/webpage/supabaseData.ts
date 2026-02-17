@@ -1329,7 +1329,6 @@ export interface MessageData {
 
 export interface AttachmentData {
 	id?: string;
-	message_id: string; // Foreign key to messages.id
 	filename: string;
 	content_type?: string;
 	size: number;
@@ -1342,7 +1341,6 @@ export interface AttachmentData {
 
 export interface EmbedData {
 	id?: string;
-	message_id: string; // Foreign key to messages.id
 	title?: string;
 	type?: string;
 	description?: string;

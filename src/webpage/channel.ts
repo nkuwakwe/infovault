@@ -2955,6 +2955,7 @@ class Channel extends SnowFlake {
 					.filter((_) => _ !== undefined),
 			},
 			this,
+			true // Don't store fake messages in database
 		);
 		if (!this.lastmessageid) {
 			this.topid = m.id;

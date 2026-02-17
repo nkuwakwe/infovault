@@ -307,17 +307,16 @@ class Message extends SnowFlake {
 		this.giveData(messagejson);
 		if (!dontStore) {
 			this.owner.messages.set(this.id, this);
+			
+			// Phase 2: Store message in Supabase (only for new messages)
+			this.storeInSupabase();
 		}
-		
-		// Phase 2: Store message in Supabase
-		this.storeInSupabase();
 	}
 	// Phase 2: Store message in Supabase
 	async storeInSupabase() {
 		try {
 			// Convert message data to Supabase format
 			const messageData = {
-				message_id: this.id,
 				channel_id: this.channel.id,
 				guild_id: this.guild.id,
 				author_id: this.author.id,
@@ -339,13 +338,9 @@ class Message extends SnowFlake {
 			if (this.attachments && this.attachments.length > 0) {
 				for (const attachment of this.attachments) {
 					await supabaseData.createMessageAttachment({
-						message_id: this.id,
 						filename: attachment.filename,
 						content_type: attachment.content_type,
-						size: attachment.size,
-						url: attachment.url,
-						width: attachment.width,
-						height: attachment.height
+						size: attachment.size
 					});
 				}
 			}
@@ -354,18 +349,12 @@ class Message extends SnowFlake {
 			if (this.embeds && this.embeds.length > 0) {
 				for (const embed of this.embeds) {
 					await supabaseData.createMessageEmbed({
-						message_id: this.id,
 						title: embed.title,
 						type: embed.type,
-						description: embed.description,
-						url: embed.url,
-						color: embed.color,
-						footer_text: embed.footer?.text,
-						footer_icon_url: embed.footer?.icon_url
+						description: embed.description
 					});
 				}
 			}
-
 		} catch (error) {
 			console.error('❌ Failed to store message in Supabase:', error);
 			// Don't throw error - continue with normal operation
