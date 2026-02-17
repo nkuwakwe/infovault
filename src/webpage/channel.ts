@@ -271,7 +271,13 @@ class Channel extends SnowFlake {
 		return !!this.mute_config && new Date(this.mute_config.end_time).getTime() > Date.now();
 	}
 	icon?: string;
+	supabaseIconUrl?: string; // Store Supabase icon URL
 	iconUrl() {
+		// Prioritize Supabase icon over API icon
+		if (this.supabaseIconUrl) {
+			return this.supabaseIconUrl;
+		}
+		// Fallback to API CDN
 		return `${this.info.cdn}/channel-icons/${this.id}/${this.icon}.png`;
 	}
 	createInvite() {
@@ -701,7 +707,6 @@ class Channel extends SnowFlake {
 			// Show loading state
 			const uploadButton = uploadButtonInput.buttonHtml;
 			if (uploadButton) {
-				const originalText = uploadButton.textContent;
 				uploadButton.textContent = 'Uploading...';
 				uploadButton.disabled = true;
 			}
@@ -723,6 +728,9 @@ class Channel extends SnowFlake {
 					if (response.ok) {
 						// Update local icon
 						this.icon = publicUrl.split('/').pop()?.split('?')[0] || '';
+						
+						// Store Supabase icon URL
+						this.supabaseIconUrl = publicUrl;
 						
 						// Store icon URL in database
 						const dbUpdateSuccess = await updateChannelIcon(this.id, publicUrl);
@@ -773,6 +781,13 @@ class Channel extends SnowFlake {
 				channelIconElement.setAttribute('src', this.iconUrl());
 				console.log(`Updated channel icon in DOM to: "${this.iconUrl()}"`);
 			}
+			
+			// Update typebox placeholder icon
+			const typeboxPlaceholder = document.querySelector(".typebox-placeholder img");
+			if (typeboxPlaceholder) {
+				typeboxPlaceholder.setAttribute('src', this.iconUrl());
+				console.log(`Updated typebox placeholder icon to: "${this.iconUrl()}"`);
+			}
 		}
 	}
 	
@@ -783,14 +798,15 @@ class Channel extends SnowFlake {
 		try {
 			console.log('Attempting to sync channel icon for channel ID:', this.id);
 			const supabaseIcon = await getChannelIcon(this.id);
-			if (supabaseIcon && supabaseIcon !== this.icon) {
-				this.icon = supabaseIcon.split('/').pop()?.split('?')[0] || '';
-				console.log(`Channel icon synced from Supabase: "${this.icon}"`);
+			if (supabaseIcon && supabaseIcon !== this.supabaseIconUrl) {
+				this.supabaseIconUrl = supabaseIcon;
+				console.log(`Channel icon synced from Supabase: "${this.supabaseIconUrl}"`);
 				
 				// Update the channel icon display if this channel is visible
 				this.updateChannelIconDisplay();
 			} else if (!supabaseIcon) {
 				console.log('No channel icon found in Supabase for this channel ID');
+				this.supabaseIconUrl = undefined;
 			} else {
 				console.log('Channel icon in Supabase matches local icon');
 			}
