@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Gateway Replacement Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success { background: #2d5a2d; }
+        .error { background: #5a2d2d; }
+        .info { background: #2d4a5a; }
+        .warning { background: #5a5a2d; }
+        #output {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .test-section {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .metric-item {
+            background: #333;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔌 WebSocket Gateway Replacement Test</h1>
+    <p>Testing the new Supabase WebSocket Gateway replacement</p>
+    
+    <div class="container">
+        <h2>🚀 Test Controls</h2>
+        <div class="button-group">
+            <button id="testGatewayInit">Initialize Gateway</button>
+            <button id="testConnection">Test Connection</button>
+            <button id="testRealtime">Test Real-time</button>
+            <button id="testFallback">Test Fallback</button>
+            <button id="clearResults">Clear Results</button>
+        </div>
+        <div id="testStatus" class="status info">Ready to test...</div>
+    </div>
+
+    <div class="test-grid">
+        <div class="test-section">
+            <h3>📊 Gateway Status</h3>
+            <div id="gatewayStatus"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔗 Connection Info</h3>
+            <div id="connectionInfo"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📋 Test Output</h2>
+        <button id="clearLog">Clear Log</button>
+        <div id="output"></div>
+    </div>
+
+    <script type="module">
+        // Import Supabase client
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+        // Supabase configuration
+        const SUPABASE_URL = 'https://vkgkqcsjgiyadivuxosp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZ2txY3NqZ2l5YWRpdnV4b3NwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODkwODIxNywiZXhwIjoyMDg0NDg0MjE3fQ.nK2z8ekYbvLTPAe7XlizCdyaM-gQXxSaY9rT7m18wtM';
+
+        // DOM elements
+        const output = document.getElementById('output');
+        const testStatus = document.getElementById('testStatus');
+        const gatewayStatus = document.getElementById('gatewayStatus');
+        const connectionInfo = document.getElementById('connectionInfo');
+
+        // Test state
+        let supabaseClient = null;
+        let gatewayInitialized = false;
+
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            output.textContent += logMessage;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(element, message, type) {
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        function updateGatewayStatus() {
+            gatewayStatus.innerHTML = `
+                <div class="metric-item">
+                    <span>Initialized:</span>
+                    <span>${gatewayInitialized ? '✅ Yes' : '❌ No'}</span>
+                </div>
+                <div class="metric-item">
+                    <span>Client Available:</span>
+                    <span>${supabaseClient ? '✅ Yes' : '❌ No'}</span>
+                </div>
+                <div class="metric-item">
+                    <span>Feature Toggle:</span>
+                    <span>${localStorage.getItem('use_supabase_realtime') || 'false'}</span>
+                </div>
+            `;
+        }
+
+        function updateConnectionInfo() {
+            if (supabaseClient) {
+                connectionInfo.innerHTML = `
+                    <div class="metric-item">
+                        <span>URL:</span>
+                        <span>${SUPABASE_URL.substring(0, 20)}...</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Status:</span>
+                        <span>🟢 Connected</span>
+                    </div>
+                `;
+            } else {
+                connectionInfo.innerHTML = `
+                    <div class="metric-item">
+                        <span>Status:</span>
+                        <span>🔴 Not Connected</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Test functions
+        async function testGatewayInitialization() {
+            log('🔌 Testing WebSocket Gateway initialization...');
+            updateStatus(testStatus, 'Initializing gateway...', 'progress');
+
+            try {
+                // Initialize Supabase client
+                supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                
+                // Test basic connection
+                const { data, error } = await supabaseClient
+                    .from('messages')
+                    .select('count')
+                    .limit(1);
+
+                if (error) {
+                    throw error;
+                }
+
+                gatewayInitialized = true;
+                updateStatus(testStatus, '✅ Gateway initialized successfully!', 'success');
+                log('✅ Gateway initialization successful');
+                log(`📊 Query result: ${data ? 'Data received' : 'No data'}`);
+                
+                updateGatewayStatus();
+                updateConnectionInfo();
+
+            } catch (error) {
+                updateStatus(testStatus, `❌ Gateway initialization failed: ${error.message}`, 'error');
+                log(`❌ Gateway initialization failed: ${error.message}`);
+                log('🔄 This would trigger fallback to original WebSocket');
+            }
+        }
+
+        async function testConnection() {
+            if (!supabaseClient) {
+                updateStatus(testStatus, '❌ Please initialize gateway first', 'error');
+                return;
+            }
+
+            log('🔗 Testing connection health...');
+            updateStatus(testStatus, 'Testing connection...', 'progress');
+
+            try {
+                const startTime = Date.now();
+                
+                // Test multiple operations
+                const operations = [];
+                
+                // Test message query
+                operations.push(
+                    supabaseClient
+                        .from('messages')
+                        .select('count')
+                        .limit(1)
+                );
+
+                // Test channel query
+                operations.push(
+                    supabaseClient
+                        .from('channels')
+                        .select('count')
+                        .limit(1)
+                );
+
+                // Test guild query
+                operations.push(
+                    supabaseClient
+                        .from('guilds')
+                        .select('count')
+                        .limit(1)
+                );
+
+                const results = await Promise.allSettled(operations);
+                const duration = Date.now() - startTime;
+
+                const successful = results.filter(r => r.status === 'fulfilled').length;
+                const failed = results.filter(r => r.status === 'rejected').length;
+
+                updateStatus(testStatus, `✅ Connection test completed in ${duration}ms`, 'success');
+                log(`✅ Connection test completed in ${duration}ms`);
+                log(`📊 Success: ${successful}, Failed: ${failed}`);
+                
+                if (successful === operations.length) {
+                    log('🎉 All operations successful!');
+                }
+
+            } catch (error) {
+                updateStatus(testStatus, `❌ Connection test failed: ${error.message}`, 'error');
+                log(`❌ Connection test failed: ${error.message}`);
+            }
+        }
+
+        async function testRealtime() {
+            if (!supabaseClient) {
+                updateStatus(testStatus, '❌ Please initialize gateway first', 'error');
+                return;
+            }
+
+            log('📡 Testing real-time subscription...');
+            updateStatus(testStatus, 'Testing real-time features...', 'progress');
+
+            try {
+                // Create a test channel for real-time
+                const channel = supabaseClient.channel('test-websocket-gateway');
+                
+                // Subscribe to test broadcasts
+                channel.on('broadcast', { event: 'test' }, (payload) => {
+                    log(`📡 Real-time event received: ${JSON.stringify(payload)}`);
+                });
+
+                // Subscribe to connection status
+                channel.on('postgres_changes', 
+                    { event: '*', schema: 'public', table: 'messages' }, 
+                    (payload) => {
+                        log(`📡 Database change detected: ${payload.eventType}`);
+                    }
+                );
+
+                await channel.subscribe();
+                
+                updateStatus(testStatus, '✅ Real-time subscription active', 'success');
+                log('✅ Real-time subscription established');
+                log('📡 Listening for events...');
+
+                // Send a test broadcast after 2 seconds
+                setTimeout(async () => {
+                    try {
+                        await channel.send({
+                            type: 'broadcast',
+                            event: 'test',
+                            payload: {
+                                message: 'WebSocket Gateway Test',
+                                timestamp: Date.now(),
+                                source: 'Phase 6 Test'
+                            }
+                        });
+                        log('📡 Test broadcast sent');
+                    } catch (error) {
+                        log(`❌ Failed to send broadcast: ${error.message}`);
+                    }
+                }, 2000);
+
+            } catch (error) {
+                updateStatus(testStatus, `❌ Real-time test failed: ${error.message}`, 'error');
+                log(`❌ Real-time test failed: ${error.message}`);
+            }
+        }
+
+        function testFallback() {
+            log('🔄 Testing fallback mechanism...');
+            updateStatus(testStatus, 'Testing fallback...', 'progress');
+
+            // Simulate disabling Supabase
+            const originalValue = localStorage.getItem('use_supabase_realtime');
+            localStorage.setItem('use_supabase_realtime', 'false');
+            
+            updateStatus(testStatus, '✅ Fallback mode activated', 'success');
+            log('✅ Fallback to original WebSocket activated');
+            log('🔄 Original WebSocket gateway would be used');
+            
+            // Restore original value after 3 seconds
+            setTimeout(() => {
+                if (originalValue) {
+                    localStorage.setItem('use_supabase_realtime', originalValue);
+                } else {
+                    localStorage.removeItem('use_supabase_realtime');
+                }
+                updateStatus(testStatus, '🔄 Original setting restored', 'info');
+                log('🔄 Original settings restored');
+                updateGatewayStatus();
+            }, 3000);
+        }
+
+        // Event listeners
+        document.getElementById('testGatewayInit').addEventListener('click', testGatewayInitialization);
+        document.getElementById('testConnection').addEventListener('click', testConnection);
+        document.getElementById('testRealtime').addEventListener('click', testRealtime);
+        document.getElementById('testFallback').addEventListener('click', testFallback);
+
+        document.getElementById('clearResults').addEventListener('click', () => {
+            gatewayInitialized = false;
+            supabaseClient = null;
+            updateStatus(testStatus, 'Ready to test...', 'info');
+            updateGatewayStatus();
+            updateConnectionInfo();
+        });
+
+        document.getElementById('clearLog').addEventListener('click', () => {
+            output.textContent = '';
+        });
+
+        // Initialize display
+        updateGatewayStatus();
+        updateConnectionInfo();
+        
+        log('🔌 WebSocket Gateway Replacement Test loaded');
+        log('📡 Click "Initialize Gateway" to begin testing');
+    </script>
+</body>
+</html>

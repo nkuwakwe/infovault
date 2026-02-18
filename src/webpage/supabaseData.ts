@@ -43,7 +43,7 @@ async function loadSupabaseClient() {
 		}
 		
 		// Fallback to dynamic import for server-side
-		const { createClient } = await import('@supabase/supabase-js');
+		const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
 		return createClient(SUPABASE_URL, SUPABASE_KEY!);
 	} catch (error) {
 		console.error('Failed to load Supabase client:', error);

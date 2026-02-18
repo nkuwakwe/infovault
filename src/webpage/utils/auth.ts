@@ -5,7 +5,8 @@ let supabaseAuth: any = null;
 async function getSupabaseAuth() {
 	if (!supabaseAuth) {
 		try {
-			const { createClient } = await import('@supabase/supabase-js');
+			// Use CDN import for browser compatibility
+			const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
 			const SUPABASE_URL = 'https://vkgkqcsjgiyadivuxosp.supabase.co';
 			const SUPABASE_ANON_KEY = 'sb_publishable_ErhOA0SIFaLJKXAIovqu8A_CSaXxW7q';
 			supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

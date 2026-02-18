@@ -5,7 +5,8 @@ let supabaseClient: any = null;
 async function getSupabaseClient() {
 	if (!supabaseClient) {
 		try {
-			const { createClient } = await import("@supabase/supabase-js");
+			// Use CDN import for browser compatibility
+			const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
 			const supabaseUrl = "https://vkgkqcsjgiyadivuxosp.supabase.co";
 			const supabaseKey = "sb_secret_pgNYIvV5HjQcsNcPYFcDaQ_9KXe1_NO";
 
