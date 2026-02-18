@@ -21,6 +21,7 @@ import {
 } from "./jsontypes.js";
 import {Member} from "./member.js";
 import {Dialog, Form, FormError, Options, Settings} from "./settings.js";
+import {initializeWebSocketGateway, shouldUseWebSocketGateway} from "./utils/websocketGateway.js";
 import {getTextNodeAtPosition, MarkDown, saveCaretPosition} from "./markdown.js";
 import {Bot} from "./bot.js";
 import {Role} from "./role.js";
@@ -101,6 +102,7 @@ class Localuser {
 	lookingguild: Guild | undefined;
 	guildhtml: Map<string, HTMLDivElement> = new Map();
 	ws: WebSocket | undefined;
+	supabaseGateway: any | undefined; // WebSocket Gateway replacement
 	connectionSucceed = 0;
 	errorBackoff = 0;
 	channelids: Map<string, Channel> = new Map();
@@ -510,11 +512,25 @@ class Localuser {
 	resume_gateway_url?: string;
 	session_id?: string;
 	async initwebsocket(resume = false): Promise<void> {
+		// Check if we should use Supabase WebSocket Gateway replacement
+		if (shouldUseWebSocketGateway()) {
+			console.log('🔄 Using Supabase WebSocket Gateway replacement');
+			try {
+				this.supabaseGateway = await initializeWebSocketGateway(this);
+				return;
+			} catch (error) {
+				console.error('❌ Failed to initialize Supabase WebSocket Gateway, falling back to original:', error);
+				// Continue with original WebSocket implementation
+			}
+		}
+
+		// Original WebSocket implementation
 		let returny: () => void;
 		if (!this.resume_gateway_url || !this.session_id) {
 			resume = false;
 		}
-		const doComp = DecompressionStream && !getDeveloperSettings().gatewayCompression;
+		const devSettings = await getDeveloperSettings();
+		const doComp = DecompressionStream && !devSettings.gatewayCompression;
 		const ws = new WebSocket(
 			(resume ? this.resume_gateway_url : this.serverurls.gateway.toString()) +
 				"?encoding=json&v=9" +
