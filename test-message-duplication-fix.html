@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message Duplication Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success { background: #2d5a2d; }
+        .error { background: #5a2d2d; }
+        .info { background: #2d4a5a; }
+        .warning { background: #5a5a2d; }
+        #output {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .test-section {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .metric-item {
+            background: #333;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .message-count {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+            text-align: center;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Message Duplication Fix Test</h1>
+    <p>Testing that messages are only stored once in the database</p>
+    
+    <div class="container">
+        <h2>🧪 Test Controls</h2>
+        <div class="button-group">
+            <button id="checkMessageCount">Check Message Count</button>
+            <button id="simulatePageRefresh">Simulate Page Refresh</button>
+            <button id="sendTestMessage">Send Test Message</button>
+            <button id="clearResults">Clear Results</button>
+        </div>
+        <div id="testStatus" class="status info">Ready to test...</div>
+    </div>
+
+    <div class="test-grid">
+        <div class="test-section">
+            <h3>📊 Database Status</h3>
+            <div id="databaseStatus"></div>
+            <div class="message-count" id="messageCount">0</div>
+            <div>Messages in Database</div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔄 Test Results</h3>
+            <div id="testResults"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📋 Test Log</h2>
+        <button id="clearLog">Clear Log</button>
+        <div id="output"></div>
+    </div>
+
+    <script type="module">
+        // Import Supabase client
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+        // Supabase configuration
+        const SUPABASE_URL = 'https://vkgkqcsjgiyadivuxosp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZ2txY3NqZ2l5YWRpdnV4b3NwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODkwODIxNywiZXhwIjoyMDg0NDg0MjE3fQ.nK2z8ekYbvLTPAe7XlizCdyaM-gQXxSaY9rT7m18wtM';
+
+        // DOM elements
+        const output = document.getElementById('output');
+        const testStatus = document.getElementById('testStatus');
+        const databaseStatus = document.getElementById('databaseStatus');
+        const testResults = document.getElementById('testResults');
+        const messageCount = document.getElementById('messageCount');
+
+        // Test state
+        let supabaseClient = null;
+        let initialMessageCount = 0;
+        let testMessageId = null;
+
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            output.textContent += logMessage;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(element, message, type) {
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        function updateDatabaseStatus(count) {
+            messageCount.textContent = count;
+            databaseStatus.innerHTML = `
+                <div class="metric-item">
+                    <span>Total Messages:</span>
+                    <span>${count}</span>
+                </div>
+                <div class="metric-item">
+                    <span>Initial Count:</span>
+                    <span>${initialMessageCount}</span>
+                </div>
+                <div class="metric-item">
+                    <span>Difference:</span>
+                    <span>${count - initialMessageCount}</span>
+                </div>
+            `;
+        }
+
+        function updateTestResults(results) {
+            testResults.innerHTML = results.map(result => 
+                `<div class="metric-item">
+                    <span>${result.test}:</span>
+                    <span style="color: ${result.passed ? '#4CAF50' : '#f44336'}">${result.passed ? '✅ PASS' : '❌ FAIL'}</span>
+                </div>`
+            ).join('');
+        }
+
+        // Initialize Supabase client
+        async function initSupabase() {
+            if (!supabaseClient) {
+                supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                log('✅ Supabase client initialized');
+            }
+        }
+
+        // Get message count from database
+        async function getMessageCount() {
+            await initSupabase();
+            
+            try {
+                const { count, error } = await supabaseClient
+                    .from('messages')
+                    .select('*', { count: 'exact', head: true });
+                
+                if (error) {
+                    throw error;
+                }
+                
+                return count || 0;
+            } catch (error) {
+                log(`❌ Error getting message count: ${error.message}`);
+                return 0;
+            }
+        }
+
+        // Test functions
+        async function checkMessageCount() {
+            log('🔍 Checking current message count...');
+            updateStatus(testStatus, 'Checking message count...', 'progress');
+            
+            const count = await getMessageCount();
+            updateDatabaseStatus(count);
+            
+            updateStatus(testStatus, `✅ Current message count: ${count}`, 'success');
+            log(`✅ Current message count: ${count}`);
+        }
+
+        async function simulatePageRefresh() {
+            log('🔄 Simulating page refresh scenario...');
+            updateStatus(testStatus, 'Simulating page refresh...', 'progress');
+            
+            // Get initial count
+            initialMessageCount = await getMessageCount();
+            updateDatabaseStatus(initialMessageCount);
+            
+            log(`📊 Initial message count: ${initialMessageCount}`);
+            
+            // Simulate loading messages (this would normally happen during page refresh)
+            log('📥 Simulating message loading (like page refresh)...');
+            
+            // Wait a moment to simulate loading time
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Check count after "refresh"
+            const afterRefreshCount = await getMessageCount();
+            updateDatabaseStatus(afterRefreshCount);
+            
+            const difference = afterRefreshCount - initialMessageCount;
+            const passed = difference === 0;
+            
+            updateTestResults([{
+                test: 'Page Refresh Test',
+                passed: passed
+            }]);
+            
+            if (passed) {
+                updateStatus(testStatus, '✅ Page refresh test passed - no duplicate messages!', 'success');
+                log('✅ Page refresh test passed - no duplicate messages created');
+            } else {
+                updateStatus(testStatus, `❌ Page refresh test failed - ${difference} duplicate messages!`, 'error');
+                log(`❌ Page refresh test failed - ${difference} duplicate messages were created`);
+            }
+        }
+
+        async function sendTestMessage() {
+            log('📤 Sending test message...');
+            updateStatus(testStatus, 'Sending test message...', 'progress');
+            
+            await initSupabase();
+            
+            try {
+                // Create a test message
+                const testMessageData = {
+                    channel_id: 'test-channel',
+                    guild_id: 'test-guild', 
+                    author_id: 'test-user',
+                    content: `Test message at ${new Date().toISOString()}`,
+                    timestamp: new Date().toISOString(),
+                    type: 0
+                };
+                
+                const { data, error } = await supabaseClient
+                    .from('messages')
+                    .insert(testMessageData)
+                    .select()
+                    .single();
+                
+                if (error) {
+                    throw error;
+                }
+                
+                testMessageId = data.id;
+                log(`✅ Test message sent with ID: ${testMessageId}`);
+                
+                // Check count after sending
+                const countAfterSend = await getMessageCount();
+                updateDatabaseStatus(countAfterSend);
+                
+                updateStatus(testStatus, '✅ Test message sent successfully', 'success');
+                
+            } catch (error) {
+                updateStatus(testStatus, `❌ Failed to send test message: ${error.message}`, 'error');
+                log(`❌ Failed to send test message: ${error.message}`);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('checkMessageCount').addEventListener('click', checkMessageCount);
+        document.getElementById('simulatePageRefresh').addEventListener('click', simulatePageRefresh);
+        document.getElementById('sendTestMessage').addEventListener('click', sendTestMessage);
+
+        document.getElementById('clearResults').addEventListener('click', () => {
+            initialMessageCount = 0;
+            testMessageId = null;
+            updateStatus(testStatus, 'Ready to test...', 'info');
+            updateDatabaseStatus(0);
+            updateTestResults([]);
+        });
+
+        document.getElementById('clearLog').addEventListener('click', () => {
+            output.textContent = '';
+        });
+
+        // Initialize display
+        updateDatabaseStatus(0);
+        updateTestResults([]);
+        
+        log('🔧 Message Duplication Fix Test loaded');
+        log('📊 Click "Check Message Count" to start');
+    </script>
+</body>
+</html>

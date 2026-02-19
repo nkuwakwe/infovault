@@ -31,7 +31,7 @@ import {Direct} from "./direct.js";
 import {ProgessiveDecodeJSON} from "./utils/progessiveLoad.js";
 import {NotificationHandler} from "./notificationHandler.js";
 import {Command} from "./interactions/commands.js";
-import {getChannelName, updateChannelName, getChannelIcon, uploadChannelIcon, updateChannelIcon, deleteChannelFromDatabase, createChannel as createChannelInDb, getGuildChannels} from "./supabaseData.js";
+import {getChannelName, updateChannelName, getChannelIcon, uploadChannelIcon, updateChannelIcon, deleteChannelFromDatabase, createChannel as createChannelInDb, getGuildChannels, getMessages, getMessage} from "./supabaseData.js";
 
 class Channel extends SnowFlake {
 	editing!: Message | null;
@@ -789,7 +789,7 @@ class Channel extends SnowFlake {
 			
 			// Fallback: try to find button by channel name in all channel buttons
 			if (!channelDiv?.querySelector('.channelbutton img.space')) {
-				const allChannelButtons = document.querySelectorAll('.channelbutton');
+				const allChannelButtons = Array.from(document.querySelectorAll('.channelbutton'));
 				for (const button of allChannelButtons) {
 					const nameSpan = button.querySelector('.ellipsis');
 					if (nameSpan && nameSpan.textContent === this.currentName) {
@@ -891,7 +891,7 @@ class Channel extends SnowFlake {
 				if (this.messages.has(_.id)) {
 					return this.messages.get(_.id) as Message;
 				} else {
-					return new Message(_, this);
+					return new Message(_, this, true); // dontStore = true for existing messages
 				}
 			});
 		}
@@ -1592,11 +1592,19 @@ class Channel extends SnowFlake {
 				topic: this.topic || '',
 				nsfw: this.nsfw || false,
 				position: this.position || 0,
-				parent_id: this.parent_id || null,
+				parent_id: this.parent_id || '',
 				rate_limit_per_user: this.rate_limit_per_user || 0,
-				last_message_id: this.lastmessageid || null,
-				last_pin_timestamp: this.lastpin || null,
-				icon: this.icon || null,
+				last_message_id: this.lastmessageid || '',
+				last_pin_timestamp: this.lastpin || '',
+				icon: this.icon || '',
+				user_limit: 0,
+				bitrate: 64000,
+				created_at: new Date().toISOString(),
+				default_auto_archive_duration: 1440,
+				video_quality_mode: null,
+				retention_policy_id: '',
+				flags: 0,
+				default_thread_rate_limit_per_user: 0,
 				permission_overwrites: this.permission_overwritesar.map(([roleOrUser, perms]) => ({
 					id: roleOrUser instanceof Promise ? 'unknown' : roleOrUser.id,
 					allow: perms.allow.toString(),
@@ -1681,15 +1689,69 @@ class Channel extends SnowFlake {
 		if (message) {
 			return message;
 		} else {
-			const gety = await fetch(
-				this.info.api + "/channels/" + this.id + "/messages?limit=1&around=" + id,
-				{headers: this.headers},
-			);
-			const json = await gety.json();
-			if (json.length === 0) {
-				return undefined;
+			// First try to get from Discord API
+			try {
+				const gety = await fetch(
+					this.info.api + "/channels/" + this.id + "/messages?limit=1&around=" + id,
+					{headers: this.headers},
+				);
+				const json = await gety.json();
+				if (json.length > 0) {
+					return new Message(json[0], this, true); // dontStore = true for existing messages
+				}
+			} catch (error) {
+				console.log('⚠️ Failed to fetch message from Discord API:', error);
 			}
-			return new Message(json[0], this);
+			
+			// If not found in Discord API, try Supabase
+			try {
+				const supabaseMessage = await getMessage(id);
+				
+				if (supabaseMessage) {
+					console.log('✅ Found message in Supabase:', id);
+					
+					// Convert to Discord message format
+					const messageJson: messagejson = {
+						id: supabaseMessage.id,
+						channel_id: supabaseMessage.channel_id,
+						guild_id: supabaseMessage.guild_id,
+						author: {
+							id: supabaseMessage.author_id,
+							username: 'User',
+							discriminator: '0000',
+							avatar: null,
+							public_flags: 0,
+							accent_color: 0,
+							bio: '',
+							bot: false,
+							premium_since: '',
+							premium_type: 0,
+							theme_colors: null,
+							badge_ids: []
+						},
+						content: supabaseMessage.content,
+						timestamp: supabaseMessage.timestamp,
+						edited_timestamp: supabaseMessage.edited_timestamp,
+						tts: supabaseMessage.tts,
+						mention_everyone: supabaseMessage.mention_everyone,
+						mentions: [],
+						mention_roles: [],
+						attachments: [],
+						embeds: [],
+						reactions: [],
+						nonce: supabaseMessage.nonce || '',
+						pinned: supabaseMessage.pinned,
+						type: supabaseMessage.type,
+						sticker_items: []
+					};
+					
+					return new Message(messageJson, this, true); // dontStore = true for existing messages
+				}
+			} catch (error) {
+				console.log('⚠️ Failed to fetch message from Supabase:', error);
+			}
+			
+			return undefined;
 		}
 	}
 	async focus(id: string) {
@@ -2624,6 +2686,11 @@ class Channel extends SnowFlake {
 		if (this.lastreadmessageid && this.messages.has(this.lastreadmessageid)) {
 			return;
 		}
+
+		// Phase 2: Load messages from Supabase first
+		await this.loadMessagesFromSupabase();
+
+		// Then load from Discord API for any missing messages
 		const j = await fetch(this.info.api + "/channels/" + this.id + "/messages?limit=100", {
 			headers: this.headers,
 		});
@@ -2634,7 +2701,7 @@ class Channel extends SnowFlake {
 		}
 		let prev: Message | undefined;
 		for (const thing of response) {
-			const message = new Message(thing, this);
+			const message = new Message(thing, this, true); // dontStore = true for existing messages
 			if (prev) {
 				this.idToNext.set(message.id, prev.id);
 				this.idToPrev.set(prev.id, message.id);
@@ -2649,6 +2716,113 @@ class Channel extends SnowFlake {
 			this.lastreadmessageid = undefined;
 		}
 		await this.slowmode();
+	}
+
+	// Phase 2: Load messages from Supabase database
+	async loadMessagesFromSupabase() {
+		try {
+			console.log('📥 Loading messages from Supabase for channel:', this.id);
+			
+			// Get messages from Supabase using the channel's Discord ID
+			const supabaseMessages = await getMessages(this.id, 100);
+			
+			if (supabaseMessages.length > 0) {
+				console.log(`✅ Loaded ${supabaseMessages.length} messages from Supabase`);
+				
+				// Convert Supabase messages to Discord message format
+				const messageJsons: messagejson[] = supabaseMessages.map(msg => ({
+					id: msg.id,
+					channel_id: msg.channel_id,
+					guild_id: msg.guild_id,
+					author: {
+						id: msg.author_id,
+						username: 'User', // Will be filled in by User class
+						discriminator: '0000',
+						avatar: null,
+						public_flags: 0,
+						accent_color: 0,
+						bio: '',
+						bot: false,
+						premium_since: '',
+						premium_type: 0,
+						theme_colors: null,
+						badge_ids: []
+					},
+					content: msg.content, // This will be processed by Message.giveData() into MarkDown
+					timestamp: msg.timestamp,
+					edited_timestamp: msg.edited_timestamp,
+					tts: msg.tts,
+					mention_everyone: msg.mention_everyone,
+					mentions: [],
+					mention_roles: [],
+					attachments: [],
+					embeds: [],
+					reactions: [],
+					nonce: msg.nonce || '',
+					pinned: msg.pinned,
+					type: msg.type,
+					sticker_items: []
+				}));
+				
+				// Sort messages by timestamp (oldest first for proper display order)
+				messageJsons.sort((a, b) => 
+					new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+				);
+				
+				// Create Message objects and add to channel
+				let prev: Message | undefined;
+				for (const messageJson of messageJsons) {
+					const message = new Message(messageJson, this, true); // dontStore = true for existing messages
+					
+					// IMPORTANT: Add message to channel's message map so infinite scroller can find it
+					this.messages.set(message.id, message);
+					
+					// Debug: Log message integration
+					console.log(`📥 Added message ${message.id} to channel messages map. Total messages: ${this.messages.size}`);
+					
+					// Set up message linking
+					if (prev) {
+						this.idToNext.set(prev.id, message.id);
+						this.idToPrev.set(message.id, prev.id);
+					} else {
+						// This is the oldest message we have
+						if (!this.lastmessage) {
+							this.lastmessage = message;
+							this.setLastMessageId(message.id);
+						}
+					}
+					
+					// Update the newest message reference
+					if (!prev || message.getTimeStamp() > prev.getTimeStamp()) {
+						this.lastmessage = message;
+						this.setLastMessageId(message.id);
+					}
+					
+					prev = message;
+				}
+				
+				console.log(`✅ Successfully integrated ${messageJsons.length} Supabase messages into channel`);
+				console.log(`📊 Channel messages map now contains ${this.messages.size} messages`);
+				
+				// IMPORTANT: Update lastreadmessageid and lastmessageid to use Supabase message IDs
+				if (messageJsons.length > 0) {
+					// Set lastmessageid to the newest message from Supabase
+					const newestMessage = messageJsons[messageJsons.length - 1];
+					this.setLastMessageId(newestMessage.id);
+					
+					// Set lastreadmessageid to the newest message if not already set
+					if (!this.lastreadmessageid || !this.messages.has(this.lastreadmessageid)) {
+						this.lastreadmessageid = newestMessage.id;
+					}
+					
+					console.log(`🔄 Updated message IDs - lastmessageid: ${this.lastmessageid}, lastreadmessageid: ${this.lastreadmessageid}`);
+				}
+			} else {
+				console.log('ℹ️ No messages found in Supabase for this channel');
+			}
+		} catch (error) {
+			console.error('❌ Failed to load messages from Supabase:', error);
+		}
 	}
 	delChannel(json: channeljson) {
 		const build: Channel[] = [];
@@ -2692,7 +2866,7 @@ class Channel extends SnowFlake {
 					messager = this.messages.get(response.id) as Message;
 					willbreak = true;
 				} else {
-					messager = new Message(response, this);
+					messager = new Message(response, this, true); // dontStore = true for existing messages
 				}
 				this.idToPrev.set(messager.id, previd);
 				this.idToNext.set(previd, messager.id);
@@ -2770,7 +2944,7 @@ class Channel extends SnowFlake {
 				if (this.messages.has(response.id)) {
 					messager = this.messages.get(response.id) as Message;
 				} else {
-					messager = new Message(response, this);
+					messager = new Message(response, this, true); // dontStore = true for existing messages
 				}
 
 				this.idToNext.set(messager.id, previd);
@@ -3238,7 +3412,7 @@ class Channel extends SnowFlake {
 					headers: this.headers,
 				})
 			).json()) as {messages: messagejson[]};
-			m = new Message(message, this);
+			m = new Message(message, this, true); // dontStore = true for existing messages
 			this.lastSentMessage = m;
 		}
 		if (!m) return;

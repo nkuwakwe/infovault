@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Message Flow Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success { background: #2d5a2d; }
+        .error { background: #5a2d2d; }
+        .info { background: #2d4a5a; }
+        .warning { background: #5a5a2d; }
+        .progress { background: #4a4a2d; }
+        #output {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .test-section {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .metric-item {
+            background: #444;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .message-display {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            padding: 15px;
+            border-radius: 8px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .message-item {
+            background: #2a2a2a;
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 3px solid #4CAF50;
+        }
+        .message-time {
+            color: #888;
+            font-size: 10px;
+        }
+        .message-content {
+            margin-top: 5px;
+        }
+        .message-author {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            background: #333;
+            border: 1px solid #555;
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            width: 70%;
+            margin: 5px;
+        }
+        .step-indicator {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .step {
+            background: #555;
+            padding: 5px 10px;
+            border-radius: 15px;
+            margin: 0 5px;
+            font-size: 12px;
+        }
+        .step.active {
+            background: #4CAF50;
+        }
+        .step.completed {
+            background: #2d5a2d;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Complete Message Flow Test</h1>
+    <p>Testing the complete message lifecycle: Guild → Channel → Send → Store → Retrieve → Display</p>
+    
+    <div class="container">
+        <h2>📋 Test Progress</h2>
+        <div class="step-indicator">
+            <div class="step" id="step1">1. Setup</div>
+            <div class="step" id="step2">2. Create Guild</div>
+            <div class="step" id="step3">3. Create Channel</div>
+            <div class="step" id="step4">4. Send Messages</div>
+            <div class="step" id="step5">5. Retrieve & Display</div>
+        </div>
+        <div id="testStatus" class="status info">Ready to start testing...</div>
+    </div>
+
+    <div class="test-grid">
+        <div class="test-section">
+            <h3>🎮 Test Controls</h3>
+            <div class="button-group">
+                <button id="runFullTest">🚀 Run Full Test</button>
+                <button id="createTestGuild">🏰 Create Test Guild</button>
+                <button id="createTestChannel">📝 Create Test Channel</button>
+                <button id="sendTestMessages">📤 Send Test Messages</button>
+                <button id="retrieveMessages">📥 Retrieve Messages</button>
+                <button id="clearTest">🗑️ Clear Test Data</button>
+            </div>
+            
+            <h3>📊 Test Data</h3>
+            <div id="testInfo">
+                <div class="metric-item">
+                    <span>Test Guild ID:</span>
+                    <span id="guildId">Not created</span>
+                </div>
+                <div class="metric-item">
+                    <span>Test Channel ID:</span>
+                    <span id="channelId">Not created</span>
+                </div>
+                <div class="metric-item">
+                    <span>Messages Sent:</span>
+                    <span id="messagesSent">0</span>
+                </div>
+                <div class="metric-item">
+                    <span>Messages Retrieved:</span>
+                    <span id="messagesRetrieved">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>💬 Send Message</h3>
+            <div>
+                <input type="text" id="messageInput" placeholder="Type a test message..." />
+                <button id="sendMessage">Send</button>
+            </div>
+            <div id="sendStatus" class="status info">Type a message to send</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>💬 Retrieved Messages</h2>
+        <div id="messageDisplay" class="message-display">
+            <div style="text-align: center; color: #666; padding: 50px;">
+                No messages retrieved yet. Run the test to see messages here.
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📋 Test Log</h2>
+        <button id="clearLog">Clear Log</button>
+        <div id="output"></div>
+    </div>
+
+    <script type="module">
+        // Import Supabase client
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+        // Supabase configuration
+        const SUPABASE_URL = 'https://vkgkqcsjgiyadivuxosp.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZ2txY3NqZ2l5YWRpdnV4b3NwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODkwODIxNywiZXhwIjoyMDg0NDg0MjE3fQ.nK2z8ekYbvLTPAe7XlizCdyaM-gQXxSaY9rT7m18wtM';
+
+        // DOM elements
+        const output = document.getElementById('output');
+        const testStatus = document.getElementById('testStatus');
+        const guildIdElement = document.getElementById('guildId');
+        const channelIdElement = document.getElementById('channelId');
+        const messagesSentElement = document.getElementById('messagesSent');
+        const messagesRetrievedElement = document.getElementById('messagesRetrieved');
+        const messageDisplay = document.getElementById('messageDisplay');
+        const messageInput = document.getElementById('messageInput');
+        const sendStatus = document.getElementById('sendStatus');
+
+        // Test state
+        let supabaseClient = null;
+        let testGuildId = null;
+        let testChannelId = null;
+        let sentMessagesCount = 0;
+        let retrievedMessagesCount = 0;
+
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            output.textContent += logMessage;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(element, message, type) {
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        function updateStep(stepNumber, status) {
+            const stepElement = document.getElementById(`step${stepNumber}`);
+            stepElement.className = `step ${status}`;
+        }
+
+        function generateTestId() {
+            return `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+
+        // Initialize Supabase client
+        async function initSupabase() {
+            if (!supabaseClient) {
+                supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                log('✅ Supabase client initialized');
+            }
+        }
+
+        // Test functions
+        async function createTestGuild() {
+            log('🏰 Creating test guild...');
+            updateStatus(testStatus, 'Creating test guild...', 'progress');
+            updateStep(2, 'active');
+
+            await initSupabase();
+
+            try {
+                const guildId = generateTestId();
+                const guildData = {
+                    id: guildId,
+                    name: `Test Guild ${new Date().toLocaleTimeString()}`,
+                    owner_id: 'test-user',
+                    icon: null,
+                    banner: null,
+                    description: 'Test guild for message flow testing',
+                    created_at: new Date().toISOString()
+                };
+
+                const { data, error } = await supabaseClient
+                    .from('guilds')
+                    .insert(guildData)
+                    .select()
+                    .single();
+
+                if (error) {
+                    throw error;
+                }
+
+                testGuildId = guildId;
+                guildIdElement.textContent = guildId;
+                
+                updateStatus(testStatus, `✅ Test guild created: ${guildId}`, 'success');
+                updateStep(2, 'completed');
+                log(`✅ Test guild created with ID: ${guildId}`);
+                
+                return guildId;
+            } catch (error) {
+                updateStatus(testStatus, `❌ Failed to create guild: ${error.message}`, 'error');
+                log(`❌ Failed to create guild: ${error.message}`);
+                throw error;
+            }
+        }
+
+        async function createTestChannel() {
+            log('📝 Creating test channel...');
+            updateStatus(testStatus, 'Creating test channel...', 'progress');
+            updateStep(3, 'active');
+
+            if (!testGuildId) {
+                throw new Error('Guild not created yet');
+            }
+
+            await initSupabase();
+
+            try {
+                const channelId = generateTestId();
+                const channelData = {
+                    id: channelId,
+                    guild_id: testGuildId,
+                    name: 'test-channel',
+                    type: 0, // Text channel
+                    topic: 'Test channel for message flow testing',
+                    nsfw: false,
+                    position: 0,
+                    created_at: new Date().toISOString()
+                };
+
+                const { data, error } = await supabaseClient
+                    .from('channels')
+                    .insert(channelData)
+                    .select()
+                    .single();
+
+                if (error) {
+                    throw error;
+                }
+
+                testChannelId = channelId;
+                channelIdElement.textContent = channelId;
+                
+                updateStatus(testStatus, `✅ Test channel created: ${channelId}`, 'success');
+                updateStep(3, 'completed');
+                log(`✅ Test channel created with ID: ${channelId}`);
+                
+                return channelId;
+            } catch (error) {
+                updateStatus(testStatus, `❌ Failed to create channel: ${error.message}`, 'error');
+                log(`❌ Failed to create channel: ${error.message}`);
+                throw error;
+            }
+        }
+
+        async function sendTestMessages() {
+            log('📤 Sending test messages...');
+            updateStatus(testStatus, 'Sending test messages...', 'progress');
+            updateStep(4, 'active');
+
+            if (!testChannelId) {
+                throw new Error('Channel not created yet');
+            }
+
+            await initSupabase();
+
+            try {
+                const testMessages = [
+                    'Hello, this is the first test message!',
+                    'This is the second test message with more content.',
+                    'Third message with some special characters: 🚀 ✨ 🎉',
+                    'Fourth message to test ordering',
+                    'Final test message to complete the set'
+                ];
+
+                for (let i = 0; i < testMessages.length; i++) {
+                    const messageData = {
+                        id: generateTestId(),
+                        channel_id: testChannelId,
+                        guild_id: testGuildId,
+                        author_id: 'test-user',
+                        content: testMessages[i],
+                        timestamp: new Date(Date.now() - (testMessages.length - i) * 60000).toISOString(), // Stagger timestamps
+                        edited_timestamp: null,
+                        tts: false,
+                        mention_everyone: false,
+                        pinned: false,
+                        type: 0,
+                        flags: 0
+                    };
+
+                    const { data, error } = await supabaseClient
+                        .from('messages')
+                        .insert(messageData)
+                        .select()
+                        .single();
+
+                    if (error) {
+                        throw error;
+                    }
+
+                    sentMessagesCount++;
+                    messagesSentElement.textContent = sentMessagesCount;
+                    
+                    log(`✅ Sent message ${i + 1}/${testMessages.length}: ${messageData.content.substring(0, 30)}...`);
+                    
+                    // Small delay between messages
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+
+                updateStatus(testStatus, `✅ Sent ${sentMessagesCount} test messages`, 'success');
+                updateStep(4, 'completed');
+                log(`✅ Successfully sent ${sentMessagesCount} test messages`);
+                
+            } catch (error) {
+                updateStatus(testStatus, `❌ Failed to send messages: ${error.message}`, 'error');
+                log(`❌ Failed to send messages: ${error.message}`);
+                throw error;
+            }
+        }
+
+        async function retrieveMessages() {
+            log('📥 Retrieving messages from database...');
+            updateStatus(testStatus, 'Retrieving messages...', 'progress');
+            updateStep(5, 'active');
+
+            if (!testChannelId) {
+                throw new Error('Channel not created yet');
+            }
+
+            await initSupabase();
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('messages')
+                    .select('*')
+                    .eq('channel_id', testChannelId)
+                    .order('timestamp', { ascending: true }) // Oldest first
+                    .limit(50);
+
+                if (error) {
+                    throw error;
+                }
+
+                retrievedMessagesCount = data.length;
+                messagesRetrievedElement.textContent = retrievedMessagesCount;
+
+                if (data.length > 0) {
+                    displayMessages(data);
+                    updateStatus(testStatus, `✅ Retrieved ${data.length} messages in order`, 'success');
+                    updateStep(5, 'completed');
+                    log(`✅ Retrieved ${data.length} messages from database`);
+                    
+                    // Verify chronological order
+                    const timestamps = data.map(m => new Date(m.timestamp).getTime());
+                    const isOrdered = timestamps.every((timestamp, index) => 
+                        index === 0 || timestamp >= timestamps[index - 1]
+                    );
+                    
+                    if (isOrdered) {
+                        log('✅ Messages are correctly ordered chronologically');
+                    } else {
+                        log('⚠️ Messages are NOT in chronological order!');
+                    }
+                } else {
+                    updateStatus(testStatus, 'ℹ️ No messages found in database', 'warning');
+                    log('ℹ️ No messages found in database');
+                }
+
+            } catch (error) {
+                updateStatus(testStatus, `❌ Failed to retrieve messages: ${error.message}`, 'error');
+                log(`❌ Failed to retrieve messages: ${error.message}`);
+                throw error;
+            }
+        }
+
+        function displayMessages(messages) {
+            messageDisplay.innerHTML = '';
+            
+            messages.forEach((message, index) => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message-item';
+                
+                const timestamp = new Date(message.timestamp);
+                const timeString = timestamp.toLocaleString();
+                
+                messageDiv.innerHTML = `
+                    <div class="message-time">${timeString}</div>
+                    <div class="message-author">Test User</div>
+                    <div class="message-content">${message.content}</div>
+                `;
+                
+                messageDisplay.appendChild(messageDiv);
+            });
+            
+            messageDisplay.scrollTop = messageDisplay.scrollHeight;
+        }
+
+        async function sendSingleMessage() {
+            const content = messageInput.value.trim();
+            if (!content || !testChannelId) {
+                return;
+            }
+
+            await initSupabase();
+
+            try {
+                const messageData = {
+                    id: generateTestId(),
+                    channel_id: testChannelId,
+                    guild_id: testGuildId,
+                    author_id: 'test-user',
+                    content: content,
+                    timestamp: new Date().toISOString(),
+                    edited_timestamp: null,
+                    tts: false,
+                    mention_everyone: false,
+                    pinned: false,
+                    type: 0,
+                    flags: 0
+                };
+
+                const { data, error } = await supabaseClient
+                    .from('messages')
+                    .insert(messageData)
+                    .select()
+                    .single();
+
+                if (error) {
+                    throw error;
+                }
+
+                sentMessagesCount++;
+                messagesSentElement.textContent = sentMessagesCount;
+                messageInput.value = '';
+                
+                updateStatus(sendStatus, '✅ Message sent successfully', 'success');
+                log(`✅ Sent message: ${content}`);
+                
+                // Auto-retrieve to show new message
+                setTimeout(retrieveMessages, 500);
+                
+            } catch (error) {
+                updateStatus(sendStatus, `❌ Failed to send: ${error.message}`, 'error');
+                log(`❌ Failed to send message: ${error.message}`);
+            }
+        }
+
+        async function runFullTest() {
+            log('🚀 Starting complete message flow test...');
+            updateStatus(testStatus, 'Running complete test...', 'progress');
+            updateStep(1, 'completed');
+
+            try {
+                await createTestGuild();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await createTestChannel();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await sendTestMessages();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await retrieveMessages();
+                
+                updateStatus(testStatus, '🎉 Complete test finished successfully!', 'success');
+                log('🎉 Complete message flow test finished successfully!');
+                
+            } catch (error) {
+                updateStatus(testStatus, `❌ Test failed: ${error.message}`, 'error');
+                log(`❌ Test failed: ${error.message}`);
+            }
+        }
+
+        async function clearTestData() {
+            log('🗑️ Clearing test data...');
+            
+            await initSupabase();
+
+            try {
+                if (testChannelId) {
+                    const { error: messageError } = await supabaseClient
+                        .from('messages')
+                        .delete()
+                        .eq('channel_id', testChannelId);
+                    
+                    if (messageError) {
+                        log(`⚠️ Failed to delete messages: ${messageError.message}`);
+                    }
+                }
+
+                if (testChannelId) {
+                    const { error: channelError } = await supabaseClient
+                        .from('channels')
+                        .delete()
+                        .eq('id', testChannelId);
+                    
+                    if (channelError) {
+                        log(`⚠️ Failed to delete channel: ${channelError.message}`);
+                    }
+                }
+
+                if (testGuildId) {
+                    const { error: guildError } = await supabaseClient
+                        .from('guilds')
+                        .delete()
+                        .eq('id', testGuildId);
+                    
+                    if (guildError) {
+                        log(`⚠️ Failed to delete guild: ${guildError.message}`);
+                    }
+                }
+
+                // Reset state
+                testGuildId = null;
+                testChannelId = null;
+                sentMessagesCount = 0;
+                retrievedMessagesCount = 0;
+
+                // Reset UI
+                guildIdElement.textContent = 'Not created';
+                channelIdElement.textContent = 'Not created';
+                messagesSentElement.textContent = '0';
+                messagesRetrievedElement.textContent = '0';
+                messageDisplay.innerHTML = '<div style="text-align: center; color: #666; padding: 50px;">No messages retrieved yet. Run the test to see messages here.</div>';
+                
+                // Reset steps
+                for (let i = 1; i <= 5; i++) {
+                    updateStep(i, '');
+                }
+                
+                updateStatus(testStatus, '✅ Test data cleared', 'success');
+                log('✅ Test data cleared successfully');
+                
+            } catch (error) {
+                updateStatus(testStatus, `❌ Failed to clear data: ${error.message}`, 'error');
+                log(`❌ Failed to clear test data: ${error.message}`);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('runFullTest').addEventListener('click', runFullTest);
+        document.getElementById('createTestGuild').addEventListener('click', createTestGuild);
+        document.getElementById('createTestChannel').addEventListener('click', createTestChannel);
+        document.getElementById('sendTestMessages').addEventListener('click', sendTestMessages);
+        document.getElementById('retrieveMessages').addEventListener('click', retrieveMessages);
+        document.getElementById('clearTest').addEventListener('click', clearTestData);
+        document.getElementById('sendMessage').addEventListener('click', sendSingleMessage);
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendSingleMessage();
+            }
+        });
+
+        document.getElementById('clearLog').addEventListener('click', () => {
+            output.textContent = '';
+        });
+
+        // Initialize
+        log('🧪 Complete Message Flow Test loaded');
+        log('📊 Click "Run Full Test" to test the complete flow');
+        updateStep(1, 'active');
+    </script>
+</body>
+</html>

@@ -1386,7 +1386,7 @@ export async function createMessage(messageData: MessageData): Promise<any | nul
 		const { data, error } = await client
 			.from('messages')
 			.insert({
-				id: messageData.id || generateUniqueId(), // Use Discord message ID as primary key
+				id: messageData.id, // Use Discord message ID as primary key (no UUID generation)
 				...messageData,
 				timestamp: messageData.timestamp || new Date().toISOString(),
 				created_at: new Date().toISOString(),

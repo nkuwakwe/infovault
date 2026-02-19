@@ -317,6 +317,7 @@ class Message extends SnowFlake {
 		try {
 			// Convert message data to Supabase format
 			const messageData = {
+				id: this.id, // IMPORTANT: Use the Discord message ID as primary key
 				channel_id: this.channel.id,
 				guild_id: this.guild.id,
 				author_id: this.author.id,
