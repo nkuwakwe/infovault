@@ -81,20 +81,11 @@ CREATE TABLE public.guild_members (
   id text NOT NULL DEFAULT uuid_generate_v4(),
   guild_id text,
   user_id text,
-  nick text,
-  avatar text,
-  banner text,
   joined_at timestamp with time zone DEFAULT now(),
-  premium_since timestamp with time zone,
-  deaf boolean DEFAULT false,
-  mute boolean DEFAULT false,
-  pending boolean DEFAULT false,
-  communication_disabled_until timestamp with time zone,
-  created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone,
   CONSTRAINT guild_members_pkey PRIMARY KEY (id),
   CONSTRAINT guild_members_guild_id_fkey FOREIGN KEY (guild_id) REFERENCES public.guilds(id),
-  CONSTRAINT guild_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.guild_members(id)
+  CONSTRAINT guild_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.guilds (
   id text NOT NULL DEFAULT uuid_generate_v4(),
@@ -323,6 +314,19 @@ CREATE TABLE public.user_sessions (
   last_accessed timestamp with time zone DEFAULT now(),
   CONSTRAINT user_sessions_pkey PRIMARY KEY (id),
   CONSTRAINT user_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.guild_members(id)
+);
+CREATE TABLE public.users (
+  id text NOT NULL,
+  name text NOT NULL,
+  username text NOT NULL,
+  pfp text,
+  banner text,
+  bio text,
+  user_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT users_pkey PRIMARY KEY (id),
+  CONSTRAINT users_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.voice_states (
   id text NOT NULL DEFAULT uuid_generate_v4(),

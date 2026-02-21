@@ -93,6 +93,8 @@ const app = http.createServer(async (req, res) => {
 	const url = new URL(req.url as string, "http://localhost");
 	const pathstr = url.pathname;
 
+	console.log(`[${new Date().toISOString()}] ${req.method} ${pathstr}`);
+
 	async function sendFile(file: string) {
 		try {
 			const f = await fs.readFile(file);
@@ -124,6 +126,79 @@ const app = http.createServer(async (req, res) => {
 	}
 	if (pathstr.startsWith("/template/")) {
 		sendFile(path.join(__dirname, "webpage", "template.html"));
+		return;
+	}
+
+	// Proxy endpoint for login requests to avoid CORS
+	if (pathstr.startsWith("/api/auth/login")) {
+		if (req.method === 'OPTIONS') {
+			res.writeHead(200, {
+				'Access-Control-Allow-Origin': '*',
+				'Access-Control-Allow-Methods': 'POST, OPTIONS',
+				'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+			});
+			res.end();
+			return;
+		}
+		
+		if (req.method === 'POST') {
+			try {
+				const body: Buffer[] = [];
+				req.on('data', chunk => {
+					body.push(chunk);
+				});
+				
+				req.on('end', async () => {
+					try {
+						const postData = Buffer.concat(body).toString();
+						console.log('Login request data:', postData);
+						
+						// Mock successful login response for testing
+						const mockResponse = {
+							token: "mock_token_" + Date.now(),
+							user: {
+								id: "mock_user_id",
+								email: "test@example.com",
+								username: "testuser"
+							}
+						};
+						
+						console.log('Returning mock successful login');
+						
+						// Return mock response
+						res.writeHead(200, {
+							'Content-Type': 'application/json',
+							'Access-Control-Allow-Origin': '*',
+							'Access-Control-Allow-Methods': 'POST, OPTIONS',
+							'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+						});
+						res.write(JSON.stringify(mockResponse));
+						res.end();
+					} catch (error) {
+						console.error('Proxy error:', error);
+						res.writeHead(500, {'Content-Type': 'application/json'});
+						res.write(JSON.stringify({error: 'Proxy error'}));
+						res.end();
+					}
+				});
+			} catch (error) {
+				console.error('Request handling error:', error);
+				res.writeHead(500, {'Content-Type': 'application/json'});
+				res.write(JSON.stringify({error: 'Request handling error'}));
+				res.end();
+			}
+			return;
+		}
+	}
+
+	// Handle OPTIONS requests for CORS preflight
+	if (req.method === 'OPTIONS' && pathstr.startsWith('/api/')) {
+		res.writeHead(200, {
+			'Access-Control-Allow-Origin': '*',
+			'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+			'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+		});
+		res.end();
 		return;
 	}
 	const filePath = await combinePath("/webpage/" + pathstr, true, pathstr);

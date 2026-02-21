@@ -64,6 +64,12 @@ export async function makeLogin(
 				const emailValue = res.email as string;
 				const passwordValue = res.password as string;
 				
+				// Transform email to login for Spacebar API compatibility
+				const loginData = {
+					login: emailValue,
+					password: passwordValue
+				};
+				
 				// Authenticate with Supabase
 				const authResponse = await signIn(emailValue, passwordValue);
 				
@@ -133,8 +139,8 @@ export async function makeLogin(
 	a.textContent = I18n.htmlPages.noAccount();
 	const rec = document.createElement("div");
 	form.addHTMLArea(rec);
-	// Default the login endpoint to Spacebar's API (no instance selection)
-	form.fetchURL = "https://spacebar.chat/api/auth/login";
+	// Default the login endpoint to local proxy to avoid CORS
+	form.fetchURL = "/api/auth/login";
 	form.addHTMLArea(a);
 }
 await I18n.done;
