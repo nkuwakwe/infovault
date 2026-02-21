@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Supabase Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>Direct Supabase Connection Test</h1>
+    
+    <div class="container">
+        <div class="section">
+            <h3>1. Test Direct Supabase Connection</h3>
+            <button onclick="testSupabaseConnection()">Test Connection</button>
+            <div id="connectionResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h3>2. Create User Directly</h3>
+            <button onclick="createUserDirectly()">Create User Directly</button>
+            <div id="userResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h3>3. Create Guild Member Directly</h3>
+            <button onclick="createGuildMemberDirectly()">Create Guild Member Directly</button>
+            <div id="memberResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h3>4. Check Database Tables</h3>
+            <button onclick="checkTables()">Check Tables</button>
+            <div id="tableResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h3>5. Send Test Message</h3>
+            <button onclick="sendTestMessage()">Send Message to Channel 1474366308060620801</button>
+            <div id="messageResult" class="result" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const TEST_USER_ID = '1467547943007048202';
+        const TEST_GUILD_ID = '1474366047023890265';
+        const TEST_CHANNEL_ID = '1474366308060620801';
+        
+        // Supabase configuration
+        const SUPABASE_URL = 'https://vkgkqcsjgiyadivuxosp.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZ2txY3NqZ2l5YWRpdnV4b3NwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODkwODIxNywiZXhwIjoyMDg0NDg0MjE3fQ.nK2z8ekYbvLTPAe7XlizCdyaM-gQXxSaY9rT7m18wtM';
+
+        let supabaseClient = null;
+
+        async function getSupabaseClient() {
+            if (!supabaseClient) {
+                try {
+                    // Load Supabase from CDN
+                    await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js');
+                    if (window.supabase) {
+                        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                        console.log('Supabase client created successfully');
+                    }
+                } catch (error) {
+                    console.error('Failed to load Supabase client:', error);
+                    throw error;
+                }
+            }
+            return supabaseClient;
+        }
+
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        async function testSupabaseConnection() {
+            const resultDiv = document.getElementById('connectionResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            
+            try {
+                resultDiv.textContent = 'Testing Supabase connection...';
+                
+                const client = await getSupabaseClient();
+                
+                // Test connection by trying to fetch guilds
+                const { data, error } = await client
+                    .from('guilds')
+                    .select('id, name')
+                    .limit(1);
+                
+                if (error) {
+                    resultDiv.textContent = `❌ Connection failed: ${error.message}`;
+                    resultDiv.className = 'result error';
+                } else {
+                    resultDiv.textContent = `✅ Connection successful! Found ${data.length} guilds`;
+                    resultDiv.className = 'result success';
+                }
+            } catch (error) {
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function createUserDirectly() {
+            const resultDiv = document.getElementById('userResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            
+            try {
+                resultDiv.textContent = 'Creating user directly in Supabase...';
+                
+                const client = await getSupabaseClient();
+                
+                const userData = {
+                    id: TEST_USER_ID,
+                    name: 'Test User',
+                    username: 'testuser',
+                    user_id: TEST_USER_ID,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+                
+                console.log('Creating user with data:', userData);
+                
+                const { data, error } = await client
+                    .from('users')
+                    .insert(userData)
+                    .select()
+                    .single();
+                
+                if (error) {
+                    console.error('User creation error:', error);
+                    resultDiv.textContent = `❌ Failed to create user: ${error.message}`;
+                    resultDiv.className = 'result error';
+                } else {
+                    console.log('User created successfully:', data);
+                    resultDiv.textContent = `✅ User created successfully! ID: ${data.id}`;
+                    resultDiv.className = 'result success';
+                }
+            } catch (error) {
+                console.error('User creation exception:', error);
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function createGuildMemberDirectly() {
+            const resultDiv = document.getElementById('memberResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            
+            try {
+                resultDiv.textContent = 'Creating guild member directly in Supabase...';
+                
+                const client = await getSupabaseClient();
+                
+                const memberData = {
+                    id: 'member-' + Date.now(),
+                    guild_id: TEST_GUILD_ID,
+                    user_id: TEST_USER_ID,
+                    joined_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+                
+                console.log('Creating guild member with data:', memberData);
+                
+                const { data, error } = await client
+                    .from('guild_members')
+                    .insert(memberData)
+                    .select()
+                    .single();
+                
+                if (error) {
+                    console.error('Guild member creation error:', error);
+                    resultDiv.textContent = `❌ Failed to create guild member: ${error.message}`;
+                    resultDiv.className = 'result error';
+                } else {
+                    console.log('Guild member created successfully:', data);
+                    resultDiv.textContent = `✅ Guild member created successfully! ID: ${data.id}`;
+                    resultDiv.className = 'result success';
+                }
+            } catch (error) {
+                console.error('Guild member creation exception:', error);
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function checkTables() {
+            const resultDiv = document.getElementById('tableResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            
+            try {
+                resultDiv.textContent = 'Checking database tables...';
+                
+                const client = await getSupabaseClient();
+                
+                // Check users table
+                const { data: users, error: usersError } = await client
+                    .from('users')
+                    .select('id, name, username')
+                    .eq('id', TEST_USER_ID);
+                
+                // Check guild_members table
+                const { data: members, error: membersError } = await client
+                    .from('guild_members')
+                    .select('id, guild_id, user_id, joined_at')
+                    .eq('user_id', TEST_USER_ID);
+                
+                // Check messages table
+                const { data: messages, error: messagesError } = await client
+                    .from('messages')
+                    .select('id, content, author_id')
+                    .eq('author_id', TEST_USER_ID)
+                    .limit(5);
+                
+                let resultText = `=== DATABASE CHECK RESULTS ===\n\n`;
+                
+                if (usersError) {
+                    resultText += `❌ Users table error: ${usersError.message}\n`;
+                } else {
+                    resultText += `✅ Users table: Found ${users.length} user(s)\n`;
+                    users.forEach(user => {
+                        resultText += `  - ${user.name} (${user.username})\n`;
+                    });
+                }
+                
+                resultText += `\n`;
+                
+                if (membersError) {
+                    resultText += `❌ Guild members table error: ${membersError.message}\n`;
+                } else {
+                    resultText += `✅ Guild members table: Found ${members.length} member(s)\n`;
+                    members.forEach(member => {
+                        resultText += `  - Member ID: ${member.id}, Guild: ${member.guild_id}\n`;
+                    });
+                }
+                
+                resultText += `\n`;
+                
+                if (messagesError) {
+                    resultText += `❌ Messages table error: ${messagesError.message}\n`;
+                } else {
+                    resultText += `✅ Messages table: Found ${messages.length} message(s)\n`;
+                    messages.forEach(message => {
+                        resultText += `  - "${message.content}"\n`;
+                    });
+                }
+                
+                resultDiv.textContent = resultText;
+                resultDiv.className = 'result success';
+                
+            } catch (error) {
+                console.error('Table check exception:', error);
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function sendTestMessage() {
+            const resultDiv = document.getElementById('messageResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            
+            try {
+                resultDiv.textContent = 'Sending test message to channel...';
+                
+                const client = await getSupabaseClient();
+                
+                const messageData = {
+                    id: '1474873492174567650',
+                    channel_id: TEST_CHANNEL_ID,
+                    guild_id: TEST_GUILD_ID,
+                    author_id: TEST_USER_ID,
+                    content: 'Stepped in with two baddies and two millis',
+                    timestamp: new Date().toISOString(),
+                    type: 0,
+                    tts: false,
+                    mention_everyone: false,
+                    pinned: false,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+                
+                console.log('Sending message with data:', messageData);
+                
+                const { data, error } = await client
+                    .from('messages')
+                    .insert(messageData)
+                    .select()
+                    .single();
+                
+                if (error) {
+                    console.error('Message sending error:', error);
+                    resultDiv.textContent = `❌ Failed to send message: ${error.message}`;
+                    resultDiv.className = 'result error';
+                } else {
+                    console.log('Message sent successfully:', data);
+                    resultDiv.textContent = `✅ Message sent successfully! Message ID: ${data.id}`;
+                    resultDiv.className = 'result success';
+                }
+            } catch (error) {
+                console.error('Message sending exception:', error);
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        // Auto-test connection when page loads
+        window.addEventListener('load', () => {
+            console.log('Page loaded, ready to test Supabase directly');
+        });
+    </script>
+</body>
+</html>

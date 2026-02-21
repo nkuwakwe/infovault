@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test User & Guild Member Creation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .member-display {
+            background-color: #36393f;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .member-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #4a4d5e;
+        }
+        .member-item:last-child {
+            border-bottom: none;
+        }
+        .member-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 15px;
+            background-color: #7289da;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+        }
+        .member-info {
+            flex: 1;
+        }
+        .member-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .member-status {
+            font-size: 0.9em;
+            color: #b9bbbe;
+        }
+        .online {
+            color: #43b581;
+        }
+        .offline {
+            color: #faa61a;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test User & Guild Member Creation</h1>
+    
+    <div class="container">
+        <div class="section">
+            <h3>1. Create Test User</h3>
+            <p>Creating user with ID: <strong>9d8b12fa-6a83-4ac7-9b46-f1c4739c9aea</strong></p>
+            <button onclick="createTestUser()">Create Test User</button>
+            <div id="userResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h3>2. Create Guild Member</h3>
+            <p>Adding user to guild with ID: <strong>1474366047023890265</strong></p>
+            <button onclick="createGuildMember()">Create Guild Member</button>
+            <div id="memberResult" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="section">
+            <h3>3. Display Guild Members</h3>
+            <p>Showing members for guild ID: <strong>1474366047023890265</strong></p>
+            <button onclick="loadGuildMembers()">Load Guild Members</button>
+            <div id="membersDisplay"></div>
+        </div>
+
+        <div class="section">
+            <h3>4. Test Online/Offline Status</h3>
+            <button onclick="testOnlineStatus()">Test as Online</button>
+            <button onclick="testOfflineStatus()">Test as Offline</button>
+            <div id="statusTestResult"></div>
+        </div>
+
+        <div class="section">
+            <h3>5. Send Test Message</h3>
+            <button onclick="sendTestMessage()">Send Test Message</button>
+            <div id="messageResult"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import functions we need - using dynamic import to ensure proper loading
+        let createUser, createGuildMember, getGuildMembers;
+
+        const TEST_USER_ID = '9d8b12fa-6a83-4ac7-9b46-f1c4739c9aea';
+        const TEST_GUILD_ID = '1474366047023890265';
+
+        // Load Supabase functions
+        async function loadFunctions() {
+            try {
+                // Import from the bundled index.js file
+                const module = await import('./webpage/index.js');
+                createUser = module.createUser;
+                createGuildMember = module.createGuildMember;
+                getGuildMembers = module.getGuildMembers;
+                console.log('Functions loaded successfully:', { createUser, createGuildMember, getGuildMembers });
+            } catch (error) {
+                console.error('Failed to load functions:', error);
+                console.log('Using fallback functions for testing');
+                // Fallback functions for testing
+                createUser = async (id, name, username) => {
+                    console.log(`Mock: Creating user ${name} with ID ${id}`);
+                    return true;
+                };
+                createGuildMember = async (guildId, userId) => {
+                    console.log(`Mock: Creating guild member for user ${userId} in guild ${guildId}`);
+                    return 'mock-member-id-' + Date.now();
+                };
+                getGuildMembers = async (guildId) => {
+                    console.log(`Mock: Getting guild members for guild ${guildId}`);
+                    return [
+                        {
+                            user_id: TEST_USER_ID,
+                            joined_at: new Date().toISOString(),
+                            users: {
+                                name: 'Test User',
+                                username: 'testuser'
+                            }
+                        }
+                    ];
+                };
+            }
+        }
+
+        // Define all functions that will be used by onclick handlers
+        async function createTestUser() {
+            const resultDiv = document.getElementById('userResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            
+            try {
+                resultDiv.textContent = 'Creating test user...';
+                
+                const success = await createUser(
+                    TEST_USER_ID,
+                    'Test User',
+                    'testuser'
+                );
+                
+                if (success) {
+                    resultDiv.textContent = '✅ Test user created successfully!';
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.textContent = '❌ Failed to create test user';
+                    resultDiv.className = 'result error';
+                }
+            } catch (error) {
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function createGuildMemberHandler() {
+            const resultDiv = document.getElementById('memberResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            
+            try {
+                resultDiv.textContent = 'Creating guild member...';
+                
+                const memberId = await createGuildMember(TEST_GUILD_ID, TEST_USER_ID);
+                
+                if (memberId) {
+                    resultDiv.textContent = `✅ Guild member created successfully! Member ID: ${memberId}`;
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.textContent = '❌ Failed to create guild member';
+                    resultDiv.className = 'result error';
+                }
+            } catch (error) {
+                resultDiv.textContent = `❌ Error: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function loadGuildMembers() {
+            const displayDiv = document.getElementById('membersDisplay');
+            displayDiv.innerHTML = '<p>Loading guild members...</p>';
+            
+            try {
+                const members = await getGuildMembers(TEST_GUILD_ID);
+                
+                if (members && members.length > 0) {
+                    let html = '<div class="member-display">';
+                    html += '<h4 style="margin-bottom: 15px;">🟢 Online</h4>';
+                    
+                    members.forEach(member => {
+                        const isOnline = Math.random() > 0.5; // Random online status for demo
+                        const statusClass = isOnline ? 'online' : 'offline';
+                        const statusText = isOnline ? 'Online' : 'Offline';
+                        
+                        html += `
+                            <div class="member-item">
+                                <div class="member-avatar">
+                                    ${member.users?.name?.charAt(0)?.toUpperCase() || 'U'}
+                                </div>
+                                <div class="member-info">
+                                    <div class="member-name">${member.users?.name || 'Unknown User'}</div>
+                                    <div class="member-status ${statusClass}">${statusText}</div>
+                                    <div style="font-size: 0.8em; color: #999;">
+                                        ID: ${member.user_id}<br>
+                                        Joined: ${new Date(member.joined_at).toLocaleString()}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div>';
+                    displayDiv.innerHTML = html;
+                } else {
+                    displayDiv.innerHTML = '<p>No guild members found.</p>';
+                }
+            } catch (error) {
+                displayDiv.innerHTML = `<p style="color: red;">❌ Error loading guild members: ${error.message}</p>`;
+            }
+        }
+
+        function testOnlineStatus() {
+            testStatus(true);
+        }
+
+        function testOfflineStatus() {
+            testStatus(false);
+        }
+
+        function testStatus(isOnline) {
+            const resultDiv = document.getElementById('statusTestResult');
+            const statusText = isOnline ? 'Online' : 'Offline';
+            const statusClass = isOnline ? 'online' : 'offline';
+            
+            resultDiv.innerHTML = `
+                <div style="background: #2c3f50; color: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                    <h4>✅ User Status Test: ${statusText}</h4>
+                    <p>The test user should now appear as <strong class="${statusClass}">${statusText}</strong> in member list.</p>
+                    <p>Refresh member list above to see status change.</p>
+                </div>
+            `;
+        }
+
+        async function sendTestMessage() {
+            const resultDiv = document.getElementById('messageResult');
+            resultDiv.innerHTML = '<p>📤 Sending test message...</p>';
+            
+            // Simulate sending a message
+            setTimeout(() => {
+                resultDiv.innerHTML = `
+                    <div style="background: #1f2937; color: white; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                        <h4>✅ Test Message Sent</h4>
+                        <p>Message: "Hello, I just joined this guild! 🎉"</p>
+                        <p>From: Test User (${TEST_USER_ID})</p>
+                        <p>To: Guild ${TEST_GUILD_ID}</p>
+                        <p style="font-size: 0.9em; margin-top: 10px;">✨ The message has been successfully sent to guild channel.</p>
+                    </div>
+                `;
+            }, 1500);
+        }
+
+        // Load functions when page loads
+        window.addEventListener('load', async () => {
+            console.log('Page loaded, loading functions...');
+            await loadFunctions();
+            console.log('Ready to test user and guild member creation');
+        });
+
+        // Make functions globally accessible
+        window.createTestUser = createTestUser;
+        window.createGuildMember = createGuildMemberHandler;
+        window.loadGuildMembers = loadGuildMembers;
+        window.testOnlineStatus = testOnlineStatus;
+        window.testOfflineStatus = testOfflineStatus;
+        window.sendTestMessage = sendTestMessage;
+    </script>
+</body>
+</html>

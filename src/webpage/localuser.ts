@@ -45,6 +45,7 @@ import {
 } from "./utils/storage/userPreferences";
 import {getDeveloperSettings, setDeveloperSettings} from "./utils/storage/devSettings";
 import {getLocalSettings, ServiceWorkerModeValues} from "./utils/storage/localSettings.js";
+import {getChannelName, updateChannelName, getChannelIcon, uploadChannelIcon, updateChannelIcon, deleteChannelFromDatabase, createChannel as createChannelInDb, getGuildChannels, getMessages, getMessage, getGuildMembers, createUser, createGuildMember} from "./supabaseData.js";
 import {createGuild as createSupabaseGuild, discordIdToUuid} from "./supabaseData.js";
 type traceObj = {
 	micros: number;
@@ -1291,6 +1292,72 @@ class Localuser {
 			const div = document.getElementById("sideDiv") as HTMLDivElement;
 			div.textContent = "";
 			return;
+		}
+
+		// Try to fetch guild members from Supabase for local guilds
+		if (guild.id && guild.id !== "@me") {
+			try {
+				console.log('Fetching guild members from Supabase for guild:', guild.id);
+				const supabaseMembers = await getGuildMembers(guild.id);
+				
+				if (supabaseMembers && supabaseMembers.length > 0) {
+					console.log('Found Supabase members:', supabaseMembers);
+					
+					// Create User objects for Supabase members
+					for (const memberData of supabaseMembers) {
+						if (memberData.users) {
+							// Create user data in the exact format expected by User constructor
+							const userData = {
+								id: memberData.user_id,
+								username: memberData.users.username,
+								avatar: memberData.users.pfp,
+								bio: memberData.users.bio ? memberData.users.bio : null,
+								banner: memberData.users.banner || null,
+								discriminator: "0000",
+								bot: false,
+								system: false,
+								mfa_enabled: false,
+								verified: false,
+								email: null,
+								flags: 0,
+								premium_type: 0,
+								public_flags: 0,
+								locale: "en-US",
+								accent_color: null,
+								premium_since: null,
+								theme_colors: null,
+								badge_ids: []
+							};
+							
+							// Create User object using the proper constructor
+							const user = new User(userData, this, true);
+							
+							// Create Member object
+							const memberDataForMember = {
+								user: userData,
+								roles: [],
+								joined_at: memberData.joined_at,
+								premium_since: null,
+								deaf: false,
+								mute: false,
+								pending: false,
+								nick: null,
+								avatar: null,
+								communication_disabled_until: null
+							};
+							
+							const member = new Member(memberDataForMember, guild);
+							user.members.set(guild, member);
+							guild.members.add(member);
+							
+							console.log('Created member:', user.name);
+						}
+					}
+				}
+			} catch (error) {
+				console.error('Failed to fetch guild members from Supabase:', error);
+				// Continue with existing member list if Supabase fails
+			}
 		}
 
 		if (list) {

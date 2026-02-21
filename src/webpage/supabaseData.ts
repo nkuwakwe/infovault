@@ -1165,6 +1165,139 @@ export async function getChannelIcon(channelId: string): Promise<string | null> 
 	}
 }
 
+// ===== USER FUNCTIONS =====
+
+/**
+ * Create a user in Supabase
+ */
+export async function createUser(userId: string, name: string, username: string): Promise<boolean> {
+	try {
+		const client = await getSupabaseClient();
+		
+		const userData = {
+			id: userId, // Use the provided user_id as primary key
+			name: name,
+			username: username,
+			user_id: userId, // Also store in user_id column for auth reference
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString()
+		};
+		
+		const { error } = await client
+			.from('users')
+			.insert(userData);
+
+		if (error) {
+			console.error('Error creating user:', error);
+			return false;
+		}
+
+		console.log('User created successfully:', userId);
+		return true;
+	} catch (error) {
+		console.error('Failed to create user:', error);
+		return false;
+	}
+}
+
+/**
+ * Get a user by ID
+ */
+export async function getUser(userId: string): Promise<any | null> {
+	try {
+		const client = await getSupabaseClient();
+		const { data, error } = await client
+			.from('users')
+			.select('*')
+			.eq('id', userId)
+			.single();
+
+		if (error) {
+			console.error('Error fetching user:', error);
+			return null;
+		}
+
+		return data;
+	} catch (error) {
+		console.error('Failed to fetch user:', error);
+		return null;
+	}
+}
+
+// ===== GUILD MEMBER FUNCTIONS =====
+
+/**
+ * Create a guild member in Supabase
+ */
+export async function createGuildMember(guildId: string, userId: string): Promise<string | null> {
+	try {
+		const client = await getSupabaseClient();
+		
+		const memberData = {
+			id: generateUniqueId(), // Generate unique ID for the guild member
+			guild_id: guildId,
+			user_id: userId,
+			joined_at: new Date().toISOString(),
+			updated_at: new Date().toISOString()
+		};
+		
+		const { data, error } = await client
+			.from('guild_members')
+			.insert(memberData)
+			.select()
+			.single();
+
+		if (error) {
+			console.error('Error creating guild member:', error);
+			return null;
+		}
+
+		console.log('Guild member created successfully:', data);
+		return data.id;
+	} catch (error) {
+		console.error('Failed to create guild member:', error);
+		return null;
+	}
+}
+
+/**
+ * Get all guild members for a guild
+ */
+export async function getGuildMembers(guildId: string): Promise<any[]> {
+	try {
+		const client = await getSupabaseClient();
+		const { data, error } = await client
+			.from('guild_members')
+			.select(`
+				id,
+				guild_id,
+				user_id,
+				joined_at,
+				updated_at,
+				users!inner(
+					id,
+					name,
+					username,
+					pfp,
+					banner,
+					bio
+				)
+			`)
+			.eq('guild_id', guildId)
+			.order('joined_at', { ascending: true });
+
+		if (error) {
+			console.error('Error fetching guild members:', error);
+			return [];
+		}
+
+		return data || [];
+	} catch (error) {
+		console.error('Failed to fetch guild members:', error);
+		return [];
+	}
+}
+
 // Upload channel icon to Supabase storage
 export async function uploadChannelIcon(channelId: string, file: File): Promise<string | null> {
 	try {
