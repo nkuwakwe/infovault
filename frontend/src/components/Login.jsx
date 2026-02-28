@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import './Login.css';
 
@@ -7,6 +8,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,6 +18,9 @@ const Login = () => {
     try {
       const result = await api.login(email, password);
       console.log('Login successful:', result);
+      
+      // Redirect to profile page on successful login
+      navigate('/profile');
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {
