@@ -34,6 +34,7 @@ export const api = {
   completeProfile: async (formData) => {
     try {
       const token = localStorage.getItem('access_token');
+      console.log('Making profile completion request with token:', token ? 'present' : 'missing');
       
       const response = await fetch(`${API_BASE_URL}/profile/complete`, {
         method: 'POST',
@@ -43,7 +44,9 @@ export const api = {
         body: formData,
       });
 
+      console.log('Profile response status:', response.status);
       const data = await response.json();
+      console.log('Profile response data:', data);
       
       if (!response.ok) {
         throw new Error(data.message || 'Profile update failed');

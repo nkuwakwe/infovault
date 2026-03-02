@@ -1,10 +1,12 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faAt, faCamera, faImage } from '@fortawesome/free-solid-svg-icons';
 import { api } from '../services/api';
 import './Profile.css';
 
 const Profile = () => {
+  const navigate = useNavigate();
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
@@ -59,13 +61,17 @@ const Profile = () => {
         formData.append('bannerImage', bannerImage);
       }
 
+      console.log('Submitting profile data...');
       const result = await api.completeProfile(formData);
       console.log('Profile updated successfully:', result);
       
-      // You could redirect to dashboard here
-      alert('Profile saved successfully!');
+      // Redirect to vault selection
+      setTimeout(() => {
+        navigate('/vault-selection');
+      }, 100);
       
     } catch (err) {
+      console.error('Profile submission error:', err);
       setError(err.message || 'Failed to update profile');
     } finally {
       setIsLoading(false);

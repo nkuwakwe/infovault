@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import Profile from './components/Profile';
+import VaultSelection from './components/VaultSelection';
 import AuthGuard from './components/AuthGuard';
 import './App.css';
 
@@ -16,6 +17,14 @@ function App() {
             element={
               <AuthGuard>
                 <Profile />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/vault-selection" 
+            element={
+              <AuthGuard>
+                <VaultSelection />
               </AuthGuard>
             } 
           />

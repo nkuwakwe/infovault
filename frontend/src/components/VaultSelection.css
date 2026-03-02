@@ -1,0 +1,151 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: linear-gradient(
+      270deg,
+      rgba(246, 142, 16, 0) 0%,
+      rgba(255, 166, 0, 0.1) 0%,
+      rgba(255, 166, 0, 0.2) 100%
+    ),
+    linear-gradient(0deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 100%);
+  font-family: 'Poppins', Helvetica, sans-serif;
+  color: #ffffff;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  min-width: 375px;
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.logo {
+  width: 186px;
+  height: 71px;
+  margin: 20px auto 40px;
+}
+
+.logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.card {
+  width: 358px;
+  border-radius: 12px;
+  border: 1px solid rgba(219, 176, 86, 0.25);
+  box-shadow: 0px 4px 4px rgba(219, 176, 86, 0.25);
+  background: linear-gradient(
+      270deg,
+      rgba(246, 142, 16, 0) 0%,
+      rgba(255, 166, 0, 0.14) 0%,
+      rgba(255, 166, 0, 0.27) 100%
+    ),
+    linear-gradient(0deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 100%);
+  padding: 0 0 40px;
+  overflow: hidden;
+}
+
+.title {
+  margin: 20px 0 6px 41px;
+  font-weight: 700;
+  font-size: 22px;
+  color: #ffffff;
+}
+
+.subtitle {
+  margin: 0 0 24px 41px;
+  font-weight: 600;
+  font-size: 15px;
+  color: #ffffffb0;
+}
+
+.vault-options {
+  margin: 0 41px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.vault-card {
+  background-color: #0000005e;
+  border: 1px solid rgba(219, 176, 86, 0.25);
+  border-radius: 11px;
+  padding: 18px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.vault-card.selected {
+  border-color: #dbb056;
+  box-shadow: 0 0 12px rgba(219, 176, 86, 0.4);
+  background-color: rgba(219, 176, 86, 0.08);
+}
+
+.vault-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 32px;
+  color: #dbb056;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vault-content {
+  flex: 1;
+}
+
+.vault-title {
+  font-weight: 700;
+  font-size: 18px;
+  color: #dbb056;
+  margin-bottom: 4px;
+}
+
+.vault-desc {
+  font-weight: 500;
+  font-size: 14px;
+  color: #ffffffb0;
+  line-height: 1.4;
+}
+
+.btn {
+  margin: 32px 41px 0;
+  width: 293px;
+  height: 52px;
+  background: linear-gradient(270deg, rgba(246, 142, 16, 0.8) 0%, rgba(255, 166, 0, 0.9) 100%);
+  border: 1px solid rgba(219, 176, 86, 0.25);
+  border-radius: 11px;
+  color: #000000;
+  font-weight: 700;
+  font-size: 16px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -22,7 +22,7 @@ const upload = multer({
 const uploadToStorage = async (file, folder, userId) => {
   if (!file) return null;
   
-  const fileName = `${userId}/${Date.now()}-${file.originalname}`;
+  const fileName = `${Date.now()}-${file.originalname}`;
   const { data, error } = await supabase.storage
     .from('assets')
     .upload(`${folder}/${fileName}`, file.buffer, {
@@ -292,6 +292,133 @@ app.post('/api/profile/complete', upload.fields([
 
   } catch (error) {
     console.error('Profile completion error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
+
+// Get all vaults
+app.get('/api/vaults', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Fetch vaults from database
+    const { data, error } = await supabase
+      .from('vaults')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch vaults',
+        error: error.message
+      });
+    }
+
+    res.json({
+      success: true,
+      vaults: data
+    });
+
+  } catch (error) {
+    console.error('Vault fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Join vault (create vault member - role assignment is handled by Supabase trigger)
+app.post('/api/vaults/join', async (req, res) => {
+  const { vaultId } = req.body;
+  
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    console.log('User joining vault:', { userId: user.id, vaultId });
+
+    // Check if user is already a member
+    const { data: existingMember, error: memberCheckError } = await supabase
+      .from('vault_members')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('vault_id', vaultId)
+      .single();
+
+    if (existingMember) {
+      return res.status(400).json({
+        success: false,
+        message: 'You are already a member of this vault'
+      });
+    }
+
+    // Create vault member (role assignment is handled automatically by Supabase trigger)
+    const { data: memberData, error: memberError } = await supabase
+      .from('vault_members')
+      .insert({
+        user_id: user.id,
+        vault_id: vaultId,
+        joined_at: new Date().toISOString(),
+        last_accessed_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (memberError) {
+      console.error('Member creation error:', memberError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to join vault',
+        error: memberError.message
+      });
+    }
+
+    console.log('Successfully joined vault:', { userId: user.id, vaultId });
+    
+    res.json({
+      success: true,
+      message: 'Successfully joined vault',
+      member: memberData
+    });
+
+  } catch (error) {
+    console.error('Vault join error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
