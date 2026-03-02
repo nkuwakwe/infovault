@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
 const supabase = require('./config/supabase');
 
 const app = express();
@@ -8,6 +9,38 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  }
+});
+
+// Helper function to upload file to Supabase storage
+const uploadToStorage = async (file, folder, userId) => {
+  if (!file) return null;
+  
+  const fileName = `${userId}/${Date.now()}-${file.originalname}`;
+  const { data, error } = await supabase.storage
+    .from('assets')
+    .upload(`${folder}/${fileName}`, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false
+    });
+
+  if (error) {
+    console.error('Storage upload error:', error);
+    throw error;
+  }
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('assets')
+    .getPublicUrl(`${folder}/${fileName}`);
+
+  return publicUrl;
+};
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Server is running', timestamp: new Date().toISOString() });
@@ -139,6 +172,130 @@ app.post('/api/auth/register', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error'
+    });
+  }
+});
+
+app.post('/api/profile/complete', upload.fields([
+  { name: 'profilePicture', maxCount: 1 },
+  { name: 'bannerImage', maxCount: 1 }
+]), async (req, res) => {
+  const { displayName, username, bio } = req.body;
+  const profilePictureFile = req.files?.profilePicture?.[0];
+  const bannerImageFile = req.files?.bannerImage?.[0];
+  
+  try {
+    // Get user from token
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    console.log('Profile submission attempt with token:', token.substring(0, 20) + '...');
+
+    // Verify token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError) {
+      console.error('Auth error:', authError);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token',
+        error: authError.message
+      });
+    }
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    console.log('User authenticated:', user.id);
+
+    // Upload images to storage if provided
+    let profilePictureUrl = null;
+    let bannerImageUrl = null;
+
+    if (profilePictureFile) {
+      try {
+        profilePictureUrl = await uploadToStorage(profilePictureFile, 'profiles/pfps', user.id);
+        console.log('Profile picture uploaded:', profilePictureUrl);
+      } catch (uploadError) {
+        console.error('Profile picture upload failed:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload profile picture',
+          error: uploadError.message
+        });
+      }
+    }
+
+    if (bannerImageFile) {
+      try {
+        bannerImageUrl = await uploadToStorage(bannerImageFile, 'profiles/banners', user.id);
+        console.log('Banner image uploaded:', bannerImageUrl);
+      } catch (uploadError) {
+        console.error('Banner image upload failed:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload banner image',
+          error: uploadError.message
+        });
+      }
+    }
+
+    // Update user profile in database
+    const profileData = {
+      id: user.id,
+      username: username,
+      display_name: displayName,
+      bio: bio || null,
+      updated_at: new Date().toISOString()
+    };
+
+    if (profilePictureUrl) {
+      profileData.pfp = profilePictureUrl;
+    }
+
+    if (bannerImageUrl) {
+      profileData.banner = bannerImageUrl;
+    }
+
+    console.log('Updating profile with data:', profileData);
+
+    const { data, error } = await supabase
+      .from('users')
+      .upsert(profileData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Database update error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update profile',
+        error: error.message
+      });
+    }
+
+    console.log('Profile updated successfully for user:', user.id);
+    
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: data
+    });
+
+  } catch (error) {
+    console.error('Profile completion error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
     });
   }
 });

@@ -41,7 +41,9 @@ const Login = () => {
             fontSize: '14px', 
             marginLeft: '19px',
             marginTop: '10px',
-            fontFamily: 'Poppins, sans-serif'
+            fontFamily: 'Poppins, sans-serif',
+            textAlign: 'center',
+            width: '293px'
           }}>
             {error}
           </div>
@@ -68,6 +70,7 @@ const Login = () => {
               marginTop: '15px'
             }}
             disabled={isLoading}
+            required
           />
         </div>
         
@@ -92,12 +95,13 @@ const Login = () => {
               marginTop: '15px'
             }}
             disabled={isLoading}
+            required
           />
         </div>
         
         <button 
           onClick={handleSubmit}
-          disabled={isLoading}
+          disabled={isLoading || !email || !password}
           style={{
             marginLeft: '41px',
             width: '293px',
@@ -110,8 +114,8 @@ const Login = () => {
             fontFamily: 'Poppins-Bold, Helvetica',
             fontWeight: '700',
             fontSize: '16px',
-            cursor: isLoading ? 'not-allowed' : 'pointer',
-            opacity: isLoading ? 0.6 : 1
+            cursor: (isLoading || !email || !password) ? 'not-allowed' : 'pointer',
+            opacity: (isLoading || !email || !password) ? 0.6 : 1
           }}
         >
           {isLoading ? 'Signing In...' : 'Sign In'}

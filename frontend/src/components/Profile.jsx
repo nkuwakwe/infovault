@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser, faAt, faCamera, faImage } from '@fortawesome/free-solid-svg-icons';
+import { api } from '../services/api';
 import './Profile.css';
 
 const Profile = () => {
@@ -12,6 +13,7 @@ const Profile = () => {
   const [profilePreview, setProfilePreview] = useState(null);
   const [bannerPreview, setBannerPreview] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   
   const profileInputRef = useRef(null);
   const bannerInputRef = useRef(null);
@@ -40,25 +42,31 @@ const Profile = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
     try {
-      // Here you would typically send the data to your backend
-      console.log('Profile data:', {
-        displayName,
-        username,
-        bio,
-        profilePicture,
-        bannerImage
-      });
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('displayName', displayName);
+      formData.append('username', username);
+      formData.append('bio', bio);
+      
+      if (profilePicture) {
+        formData.append('profilePicture', profilePicture);
+      }
+      
+      if (bannerImage) {
+        formData.append('bannerImage', bannerImage);
+      }
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await api.completeProfile(formData);
+      console.log('Profile updated successfully:', result);
       
-      console.log('Profile saved successfully!');
       // You could redirect to dashboard here
+      alert('Profile saved successfully!');
       
-    } catch (error) {
-      console.error('Error saving profile:', error);
+    } catch (err) {
+      setError(err.message || 'Failed to update profile');
     } finally {
       setIsLoading(false);
     }
@@ -75,6 +83,18 @@ const Profile = () => {
         <div className="subtitle">Tell us a bit about you</div>
 
         <form onSubmit={handleSubmit} className="profile-form">
+          {error && (
+            <div style={{ 
+              color: '#ff6b6b', 
+              fontSize: '14px', 
+              textAlign: 'center',
+              marginBottom: '20px',
+              fontFamily: 'Poppins, sans-serif'
+            }}>
+              {error}
+            </div>
+          )}
+
           <div className="field-label">What should we call you?</div>
           <div className="input-container">
             <FontAwesomeIcon icon={faUser} className="input-icon" />
