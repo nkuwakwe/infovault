@@ -427,6 +427,290 @@ app.post('/api/vaults/join', async (req, res) => {
   }
 });
 
+// Get user's vaults
+app.get('/api/vaults/user', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Fetch user's vaults
+    const { data, error } = await supabase
+      .from('vault_members')
+      .select(`
+        vault_id,
+        vaults (
+          id,
+          name,
+          description,
+          icon,
+          banner
+        )
+      `)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch user vaults',
+        error: error.message
+      });
+    }
+
+    const vaults = data.map(member => member.vaults);
+
+    res.json({
+      success: true,
+      vaults: vaults
+    });
+
+  } catch (error) {
+    console.error('User vaults fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get vault chats
+app.get('/api/vaults/:vaultId/chats', async (req, res) => {
+  try {
+    const { vaultId } = req.params;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if user is member of vault
+    const { data: memberCheck, error: memberError } = await supabase
+      .from('vault_members')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('vault_id', vaultId)
+      .single();
+
+    if (memberError || !memberCheck) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this vault'
+      });
+    }
+
+    // Fetch categories for this vault, sorted by position
+    const { data: categories, error: categoriesError } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('vault_id', vaultId)
+      .order('position', { ascending: true });
+
+    if (categoriesError) {
+      console.error('Categories fetch error:', categoriesError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch categories',
+        error: categoriesError.message
+      });
+    }
+
+    // Fetch chats for all categories in this vault
+    const { data: chats, error: chatsError } = await supabase
+      .from('chats')
+      .select('*')
+      .in('category_id', categories.map(cat => cat.id))
+      .order('position', { ascending: true });
+
+    if (chatsError) {
+      console.error('Chats fetch error:', chatsError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch chats',
+        error: chatsError.message
+      });
+    }
+
+    // Organize chats by category
+    const organizedData = categories.map(category => {
+      const categoryChats = chats.filter(chat => chat.category_id === category.id);
+      return {
+        ...category,
+        chats: categoryChats
+      };
+    });
+
+    res.json({
+      success: true,
+      categories: organizedData,
+      allChats: chats
+    });
+
+  } catch (error) {
+    console.error('Vault chats fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get vault members
+app.get('/api/vaults/:vaultId/members', async (req, res) => {
+  try {
+    const { vaultId } = req.params;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if user is member of vault
+    const { data: memberCheck, error: memberError } = await supabase
+      .from('vault_members')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('vault_id', vaultId)
+      .single();
+
+    if (memberError || !memberCheck) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this vault'
+      });
+    }
+
+    // Fetch vault members with user details
+    const { data, error } = await supabase
+      .from('vault_members')
+      .select(`
+        user_id,
+        joined_at,
+        users (
+          id,
+          username,
+          display_name,
+          pfp
+        )
+      `)
+      .eq('vault_id', vaultId);
+
+    if (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch vault members',
+        error: error.message
+      });
+    }
+
+    const members = data.map(member => ({
+      ...member.users,
+      joined_at: member.joined_at
+    }));
+
+    res.json({
+      success: true,
+      members: members
+    });
+
+  } catch (error) {
+    console.error('Vault members fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get user profile
+app.get('/api/user/profile', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Fetch user profile from users table
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch user profile',
+        error: error.message
+      });
+    }
+
+    res.json({
+      success: true,
+      user: data
+    });
+
+  } catch (error) {
+    console.error('User profile fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Supabase URL: ${process.env.SUPABASE_URL}`);

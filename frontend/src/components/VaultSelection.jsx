@@ -65,8 +65,8 @@ const VaultSelection = () => {
       }
       
       console.log('Successfully joined vault:', data);
-      // You could redirect to dashboard here
-      alert('Vault selected successfully!');
+      // Redirect to chat interface
+      navigate('/chat');
       
     } catch (err) {
       setError(err.message || 'Failed to join vault');

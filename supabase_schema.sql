@@ -1,9 +1,20 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
-CREATE TABLE public.chats (
+CREATE TABLE public.categories (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   vault_id uuid NOT NULL,
+  name text NOT NULL,
+  icon text,
+  position integer NOT NULL DEFAULT 0 UNIQUE,
+  is_collapsed_by_default boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT categories_pkey PRIMARY KEY (id),
+  CONSTRAINT chat_categories_vault_id_fkey FOREIGN KEY (vault_id) REFERENCES public.vaults(id)
+);
+CREATE TABLE public.chats (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL,
   description text,
   type text NOT NULL DEFAULT 'text'::text CHECK (type = ANY (ARRAY['text'::text, 'announcements'::text, 'resources'::text, 'private'::text])),
@@ -11,8 +22,9 @@ CREATE TABLE public.chats (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   icon text,
+  category_id uuid NOT NULL,
   CONSTRAINT chats_pkey PRIMARY KEY (id),
-  CONSTRAINT chats_vault_id_fkey FOREIGN KEY (vault_id) REFERENCES public.vaults(id)
+  CONSTRAINT chats_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id)
 );
 CREATE TABLE public.messages (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

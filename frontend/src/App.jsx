@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './components/Login';
 import Profile from './components/Profile';
 import VaultSelection from './components/VaultSelection';
+import ChatInterface from './components/ChatInterface';
 import AuthGuard from './components/AuthGuard';
 import './App.css';
 
@@ -25,6 +26,14 @@ function App() {
             element={
               <AuthGuard>
                 <VaultSelection />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/chat" 
+            element={
+              <AuthGuard>
+                <ChatInterface />
               </AuthGuard>
             } 
           />
