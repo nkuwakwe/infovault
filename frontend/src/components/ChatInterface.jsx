@@ -132,6 +132,11 @@ const ChatInterface = () => {
     return user.username ? user.username.slice(0, 2).toUpperCase() : '?';
   };
 
+  const getUserProfilePicture = (user) => {
+    if (!user) return null;
+    return user.pfp;
+  };
+
   if (isLoading) {
     return <div className="loading">Loading...</div>;
   }
@@ -246,7 +251,15 @@ const ChatInterface = () => {
         <div className="bottom-panel">
           <div className="user-info">
             <div className="user-avatar-small">
-              {getUserInitials(currentUser)}
+              {getUserProfilePicture(currentUser) ? (
+                <img 
+                  src={getUserProfilePicture(currentUser)} 
+                  alt={currentUser.display_name || 'User'} 
+                  className="user-avatar-img"
+                />
+              ) : (
+                getUserInitials(currentUser)
+              )}
               <div className="status-dot-small"></div>
             </div>
             <div className="user-name-role">
