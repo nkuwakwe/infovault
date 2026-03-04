@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faEnvelope, faLock } from '@fortawesome/free-solid-svg-icons';
 import { api } from '../services/api';
 import './Login.css';
 
@@ -10,6 +12,52 @@ const Login = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  useEffect(() => {
+    // Check if user is already logged in and has profile
+    const checkUserProfile = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        if (!token) return;
+
+        const response = await fetch('http://localhost:5000/api/user/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user && data.user.display_name) {
+            // User has a profile, check if they have vaults
+            const vaultsResponse = await fetch('http://localhost:5000/api/vaults/user', {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+
+            if (vaultsResponse.ok) {
+              const vaultsData = await vaultsResponse.json();
+              if (vaultsData.vaults && vaultsData.vaults.length > 0) {
+                // User has vaults, redirect to chat
+                navigate('/chat');
+              } else {
+                // User has profile but no vaults, redirect to vault selection
+                navigate('/vault-selection');
+              }
+            }
+          } else {
+            // User is logged in but no profile, redirect to profile
+            navigate('/profile');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking user profile:', error);
+      }
+    };
+
+    checkUserProfile();
+  }, [navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -19,8 +67,48 @@ const Login = () => {
       const result = await api.login(email, password);
       console.log('Login successful:', result);
       
-      // Redirect to profile page on successful login
-      navigate('/profile');
+      // After successful login, check user profile and redirect appropriately
+      const token = localStorage.getItem('access_token');
+      
+      // Check if user has a profile
+      const profileResponse = await fetch('http://localhost:5000/api/user/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (profileResponse.ok) {
+        const profileData = await profileResponse.json();
+        if (profileData.user && profileData.user.display_name) {
+          // User has a profile, check if they have vaults
+          const vaultsResponse = await fetch('http://localhost:5000/api/vaults/user', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (vaultsResponse.ok) {
+            const vaultsData = await vaultsResponse.json();
+            if (vaultsData.vaults && vaultsData.vaults.length > 0) {
+              // User has vaults, redirect to chat
+              navigate('/chat');
+            } else {
+              // User has profile but no vaults, redirect to vault selection
+              navigate('/vault-selection');
+            }
+          } else {
+            // Error checking vaults, redirect to vault selection
+            navigate('/vault-selection');
+          }
+        } else {
+          // User is logged in but no profile, redirect to profile
+          navigate('/profile');
+        }
+      } else {
+        // Error checking profile, redirect to profile
+        navigate('/profile');
+      }
+      
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {
