@@ -36,6 +36,11 @@ CREATE TABLE public.messages (
   metadata jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  type text NOT NULL DEFAULT 'text'::text CHECK (type = ANY (ARRAY['text'::text, 'image'::text, 'file'::text, 'system'::text, 'announcement'::text, 'win_proof'::text, 'admin_pin'::text])),
+  is_edited boolean DEFAULT false,
+  edited_at timestamp with time zone,
+  pinned_position integer,
+  reactions jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT messages_pkey PRIMARY KEY (id),
   CONSTRAINT messages_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id),
   CONSTRAINT messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)

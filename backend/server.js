@@ -711,6 +711,224 @@ app.get('/api/user/profile', async (req, res) => {
   }
 });
 
+// Get chat messages
+app.get('/api/chats/:chatId/messages', async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if user is member of the vault that contains this chat
+    const { data: chatData, error: chatError } = await supabase
+      .from('chats')
+      .select(`
+        id,
+        category_id,
+        categories!inner(
+          id,
+          vault_id
+        )
+      `)
+      .eq('id', chatId)
+      .single();
+
+    if (chatError || !chatData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    const vaultId = chatData.categories.vault_id;
+
+    const { data: memberCheck, error: memberError } = await supabase
+      .from('vault_members')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('vault_id', vaultId)
+      .single();
+
+    if (memberError || !memberCheck) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this chat'
+      });
+    }
+
+    // Fetch messages for this chat
+    const { data, error } = await supabase
+      .from('messages')
+      .select(`
+        id,
+        content,
+        created_at,
+        updated_at,
+        is_edited,
+        edited_at,
+        pinned_position,
+        reactions,
+        user_id,
+        users!inner(
+          id,
+          username,
+          display_name,
+          pfp
+        )
+      `)
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Messages fetch error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch messages',
+        error: error.message
+      });
+    }
+
+    res.json({
+      success: true,
+      messages: data
+    });
+
+  } catch (error) {
+    console.error('Chat messages fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Send message
+app.post('/api/messages', async (req, res) => {
+  try {
+    const { chat_id, content } = req.body;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token || !chat_id || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if user is member of the vault that contains this chat
+    const { data: chatData, error: chatError } = await supabase
+      .from('chats')
+      .select(`
+        id,
+        category_id,
+        categories!inner(
+          id,
+          vault_id
+        )
+      `)
+      .eq('id', chat_id)
+      .single();
+
+    if (chatError || !chatData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    const vaultId = chatData.categories.vault_id;
+
+    const { data: memberCheck, error: memberError } = await supabase
+      .from('vault_members')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('vault_id', vaultId)
+      .single();
+
+    if (memberError || !memberCheck) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this chat'
+      });
+    }
+
+    // Create message
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        chat_id: chat_id,
+        user_id: user.id,
+        content: content.trim(),
+        type: 'text',
+        created_at: new Date().toISOString()
+      })
+      .select(`
+        id,
+        content,
+        created_at,
+        updated_at,
+        is_edited,
+        edited_at,
+        pinned_position,
+        reactions,
+        user_id,
+        users!inner(
+          id,
+          username,
+          display_name,
+          pfp
+        )
+      `)
+      .single();
+
+    if (error) {
+      console.error('Message creation error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send message',
+        error: error.message
+      });
+    }
+
+    console.log('Message sent successfully:', data);
+    
+    res.json({
+      success: true,
+      message: data
+    });
+
+  } catch (error) {
+    console.error('Message send error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Supabase URL: ${process.env.SUPABASE_URL}`);

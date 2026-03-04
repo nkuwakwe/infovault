@@ -10,6 +10,8 @@ const ChatInterface = () => {
   const [members, setMembers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [selectedChat, setSelectedChat] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messageInput, setMessageInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -24,6 +26,12 @@ const ChatInterface = () => {
       fetchVaultMembers();
     }
   }, [currentVault]);
+
+  useEffect(() => {
+    if (selectedChat) {
+      fetchMessages();
+    }
+  }, [selectedChat]);
 
   const fetchUserData = async () => {
     try {
@@ -115,6 +123,63 @@ const ChatInterface = () => {
     }
   };
 
+  const fetchMessages = async () => {
+    if (!selectedChat) return;
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:5000/api/chats/${selectedChat.id}/messages`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        setMessages(data.messages || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch messages:', error);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!messageInput.trim() || !selectedChat) return;
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('http://localhost:5000/api/messages', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          chat_id: selectedChat.id,
+          content: messageInput.trim()
+        })
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        // Add message to local state immediately for better UX
+        setMessages(prev => [...prev, data.message]);
+        setMessageInput('');
+      } else {
+        console.error('Failed to send message:', data.message);
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
   const switchVault = (vault) => {
     setCurrentVault(vault);
     setSelectedChat(null);
@@ -130,11 +195,6 @@ const ChatInterface = () => {
       return user.display_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     }
     return user.username ? user.username.slice(0, 2).toUpperCase() : '?';
-  };
-
-  const getUserProfilePicture = (user) => {
-    if (!user) return null;
-    return user.pfp;
   };
 
   if (isLoading) {
@@ -210,14 +270,32 @@ const ChatInterface = () => {
         {/* Main Chat Area */}
         <div className="chat-area">
           <div className="chat-messages">
-            {selectedChat ? (
-              <div className="welcome-message">
-                <h3>Welcome to #{selectedChat.name}</h3>
-                <p>This is the beginning of the #{selectedChat.name} channel.</p>
+            {messages.map((message) => (
+              <div key={message.id} className="message">
+                <div className="avatar">
+                  {message.users?.pfp ? (
+                    <img 
+                      src={message.users.pfp} 
+                      alt={message.users.display_name || message.users.username} 
+                      className="user-avatar-img"
+                    />
+                  ) : (
+                    getUserInitials({ display_name: message.users?.display_name, username: message.users?.username })
+                  )}
+                </div>
+                <div className="msg-content">
+                  <span className="username">{message.users?.display_name || message.users?.username}</span>
+                  <span className="timestamp">
+                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  <div className="text">{message.content}</div>
+                </div>
               </div>
-            ) : (
+            ))}
+            {messages.length === 0 && (
               <div className="welcome-message">
-                <h3>Select a channel to start chatting</h3>
+                <h3>Welcome to #{selectedChat?.name}</h3>
+                <p>This is the beginning of the #{selectedChat?.name} channel.</p>
               </div>
             )}
           </div>
@@ -227,6 +305,9 @@ const ChatInterface = () => {
               type="text" 
               placeholder={selectedChat ? `Message #${selectedChat.name}` : "Select a channel..."}
               disabled={!selectedChat}
+              value={messageInput}
+              onChange={(e) => setMessageInput(e.target.value)}
+              onKeyPress={handleKeyPress}
             />
             <div className="input-icons">
               <i className="fas fa-plus"></i>
@@ -251,9 +332,9 @@ const ChatInterface = () => {
         <div className="bottom-panel">
           <div className="user-info">
             <div className="user-avatar-small">
-              {getUserProfilePicture(currentUser) ? (
+              {currentUser?.pfp ? (
                 <img 
-                  src={getUserProfilePicture(currentUser)} 
+                  src={currentUser.pfp} 
                   alt={currentUser.display_name || 'User'} 
                   className="user-avatar-img"
                 />
