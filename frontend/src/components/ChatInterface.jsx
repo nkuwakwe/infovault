@@ -13,6 +13,8 @@ const ChatInterface = () => {
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [profileModal, setProfileModal] = useState({ isOpen: false, user: null });
+  const [directMessage, setDirectMessage] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -173,6 +175,57 @@ const ChatInterface = () => {
     }
   };
 
+  const openProfileModal = async (user) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      
+      // Fetch user's full profile and vault role
+      const response = await fetch(`http://localhost:5000/api/users/${user.id}/profile?vault_id=${currentVault.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        setProfileModal({ isOpen: true, user: data.user });
+      }
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
+    }
+  };
+
+  const closeProfileModal = () => {
+    setProfileModal({ isOpen: false, user: null });
+    setDirectMessage('');
+  };
+
+  const sendDirectMessage = async () => {
+    if (!directMessage.trim() || !profileModal.user) return;
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('http://localhost:5000/api/direct-messages', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          recipient_id: profileModal.user.id,
+          content: directMessage.trim()
+        })
+      });
+      
+      if (response.ok) {
+        setDirectMessage('');
+        // Show success message or handle as needed
+      }
+    } catch (error) {
+      console.error('Failed to send direct message:', error);
+    }
+  };
+
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -272,7 +325,7 @@ const ChatInterface = () => {
           <div className="chat-messages">
             {messages.map((message) => (
               <div key={message.id} className="message">
-                <div className="avatar">
+                <div className="avatar" onClick={() => openProfileModal(message.users)} style={{ cursor: 'pointer' }}>
                   {message.users?.pfp ? (
                     <img 
                       src={message.users.pfp} 
@@ -355,6 +408,112 @@ const ChatInterface = () => {
           </div>
         </div>
       </div>
+
+      {/* Profile Modal */}
+      {profileModal.isOpen && profileModal.user && (
+        <>
+          <div className="modal-backdrop active" onClick={closeProfileModal}></div>
+          <div className="profile-modal">
+            <div className="modal-content active">
+              <button className="close-btn" onClick={closeProfileModal}>
+                <i className="fas fa-times"></i>
+              </button>
+
+              {/* Banner + Avatar */}
+              <div className="profile-banner-container">
+                {profileModal.user.banner ? (
+                  <img 
+                    className="profile-banner" 
+                    src={profileModal.user.banner} 
+                    alt="Profile Banner"
+                  />
+                ) : (
+                  <div style={{
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(135deg, #1a1208, #0f0803)',
+                    position: 'relative'
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.7))'
+                    }}></div>
+                  </div>
+                )}
+                <div className="banner-overlay"></div>
+
+                <div className="profile-avatar-large">
+                  {profileModal.user.pfp ? (
+                    <img 
+                      src={profileModal.user.pfp} 
+                      alt="User Avatar" 
+                    />
+                  ) : (
+                    <div style={{
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: '#33261c',
+                      color: '#dbb056',
+                      fontSize: '32px',
+                      fontWeight: '600'
+                    }}>
+                      {getUserInitials(profileModal.user)}
+                    </div>
+                  )}
+                  <div className="status-dot-large"></div>
+                </div>
+              </div>
+
+              {/* Main content */}
+              <div className="profile-content">
+                <div className="profile-info">
+                  <h2>{profileModal.user.display_name || profileModal.user.username}</h2>
+                  <p className="username">@{profileModal.user.username}</p>
+                  <div className="badges">
+                    {profileModal.user.vault_role && (
+                      <span className="badge gold">{profileModal.user.vault_role}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="profile-section">
+                  <h3>Role in Vault</h3>
+                  <p>{profileModal.user.vault_role || 'Member'}</p>
+                </div>
+
+                <div className="profile-section">
+                  <h3>About</h3>
+                  <p>{profileModal.user.bio || 'No bio available'}</p>
+                </div>
+
+                <div className="profile-section message-box">
+                  <h3>Send Direct Message</h3>
+                  <div className="message-input-container">
+                    <input 
+                      type="text" 
+                      value={directMessage}
+                      onChange={(e) => setDirectMessage(e.target.value)}
+                      placeholder={`Message @${profileModal.user.username}`}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          sendDirectMessage();
+                        }
+                      }}
+                    />
+                    <button className="send-btn" onClick={sendDirectMessage}>
+                      <i className="fas fa-paper-plane"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

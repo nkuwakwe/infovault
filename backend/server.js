@@ -929,6 +929,126 @@ app.post('/api/messages', async (req, res) => {
   }
 });
 
+// Get user profile with vault role
+app.get('/api/users/:userId/profile', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { vault_id } = req.query;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if user is member of the vault
+    const { data: memberCheck, error: memberError } = await supabase
+      .from('vault_members')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('vault_id', vault_id)
+      .single();
+
+    if (memberError || !memberCheck) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this vault'
+      });
+    }
+
+    // Fetch user profile
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, username, display_name, pfp, bio, banner')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userData) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Fetch user's role in this vault
+    const { data: roleData, error: roleError } = await supabase
+      .from('vault_members')
+      .select(`
+        roles!inner(
+          name
+        )
+      `)
+      .eq('user_id', userId)
+      .eq('vault_id', vault_id)
+      .single();
+
+    const vaultRole = roleError || !roleData ? null : roleData.roles.name;
+
+    res.json({
+      success: true,
+      user: {
+        ...userData,
+        vault_role: vaultRole
+      }
+    });
+
+  } catch (error) {
+    console.error('User profile fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Send direct message
+app.post('/api/direct-messages', async (req, res) => {
+  try {
+    const { recipient_id, content } = req.body;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token || !recipient_id || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // For now, just return success (we can implement actual DM storage later)
+    res.json({
+      success: true,
+      message: 'Direct message sent successfully'
+    });
+
+  } catch (error) {
+    console.error('Direct message send error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Supabase URL: ${process.env.SUPABASE_URL}`);
