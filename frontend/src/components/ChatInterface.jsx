@@ -268,7 +268,7 @@ const ChatInterface = () => {
         <div className="servers-column">
           {/* Direct Messages */}
           <div className="server-icon" onClick={() => navigate('/dm')}>
-            <i className="fas fa-comment-dots"></i>
+            <img src="/img/dm_icon.png" alt="Direct Messages" style={{ width: '24px', height: '24px', objectFit: 'cover' }} />
           </div>
           
           {/* User's Vaults */}
