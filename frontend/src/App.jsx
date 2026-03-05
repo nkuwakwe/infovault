@@ -4,6 +4,7 @@ import Login from './components/Login';
 import Profile from './components/Profile';
 import VaultSelection from './components/VaultSelection';
 import ChatInterface from './components/ChatInterface';
+import DirectMessages from './components/DirectMessages';
 import AuthGuard from './components/AuthGuard';
 import './App.css';
 
@@ -34,6 +35,14 @@ function App() {
             element={
               <AuthGuard>
                 <ChatInterface />
+              </AuthGuard>
+            } 
+          />
+          <Route 
+            path="/dm" 
+            element={
+              <AuthGuard>
+                <DirectMessages />
               </AuthGuard>
             } 
           />

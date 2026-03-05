@@ -1049,6 +1049,324 @@ app.post('/api/direct-messages', async (req, res) => {
   }
 });
 
+// Send friend request
+app.post('/api/friend-requests', async (req, res) => {
+  try {
+    const { receiver_username } = req.body;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token || !receiver_username) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Find receiver by username
+    const { data: receiver, error: receiverError } = await supabase
+      .from('users')
+      .select('id, username, display_name, pfp')
+      .eq('username', receiver_username)
+      .single();
+
+    if (receiverError || !receiver) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check if already friends
+    const { data: existingFriendship } = await supabase
+      .from('friendships')
+      .select('*')
+      .or(`(user_id.eq.${user.id},friend_id.eq.${receiver.id}),(user_id.eq.${receiver.id},friend_id.eq.${user.id})`)
+      .single();
+
+    if (existingFriendship) {
+      return res.status(400).json({
+        success: false,
+        message: 'Already friends with this user'
+      });
+    }
+
+    // Check if request already exists
+    const { data: existingRequest } = await supabase
+      .from('friend_requests')
+      .select('*')
+      .or(`(sender_id.eq.${user.id},receiver_id.eq.${receiver.id}),(sender_id.eq.${receiver.id},receiver_id.eq.${user.id})`)
+      .eq('status', 'pending')
+      .single();
+
+    if (existingRequest) {
+      return res.status(400).json({
+        success: false,
+        message: 'Friend request already sent'
+      });
+    }
+
+    // Create friend request
+    const { data: friendRequest, error: requestError } = await supabase
+      .from('friend_requests')
+      .insert({
+        sender_id: user.id,
+        receiver_id: receiver.id,
+        message: 'Would like to be friends!'
+      })
+      .select(`
+        *,
+        sender:sender_id(id, username, display_name, pfp),
+        receiver:receiver_id(id, username, display_name, pfp)
+      `)
+      .single();
+
+    if (requestError) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send friend request',
+        error: requestError.message
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Friend request sent successfully',
+      request: friendRequest
+    });
+
+  } catch (error) {
+    console.error('Friend request send error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get pending friend requests
+app.get('/api/friend-requests', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Get pending friend requests
+    const { data: requests, error: requestsError } = await supabase
+      .from('friend_requests')
+      .select(`
+        sender_id,
+        receiver_id,
+        message,
+        status,
+        created_at,
+        sender:sender_id(id, username, display_name, pfp)
+      `)
+      .eq('receiver_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (requestsError) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch friend requests',
+        error: requestsError.message
+      });
+    }
+
+    res.json({
+      success: true,
+      requests: requests
+    });
+
+  } catch (error) {
+    console.error('Friend requests fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Respond to friend request (accept/decline)
+app.post('/api/friend-requests/:senderId/:receiverId/respond', async (req, res) => {
+  try {
+    const { senderId, receiverId } = req.params;
+    const { action } = req.body; // 'accept' or 'decline'
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token || !['accept', 'decline'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid request'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Get friend request using composite key
+    const { data: request, error: requestError } = await supabase
+      .from('friend_requests')
+      .select('*')
+      .eq('sender_id', senderId)
+      .eq('receiver_id', receiverId)
+      .eq('status', 'pending')
+      .single();
+
+    if (requestError || !request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Friend request not found'
+      });
+    }
+
+    // Update request status
+    const { error: updateError } = await supabase
+      .from('friend_requests')
+      .update({ status: action === 'accept' ? 'accepted' : 'declined' })
+      .eq('sender_id', senderId)
+      .eq('receiver_id', receiverId);
+
+    if (updateError) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update friend request',
+        error: updateError.message
+      });
+    }
+
+    // If accepted, create friendship
+    if (action === 'accept') {
+      const { error: friendshipError } = await supabase
+        .from('friendships')
+        .insert([
+          { user_id: request.sender_id, friend_id: request.receiver_id },
+        ]);
+
+      if (friendshipError) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to create friendship',
+          error: friendshipError.message
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Friend request ${action}ed successfully`
+    });
+
+  } catch (error) {
+    console.error('Friend request response error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get user's friends
+app.get('/api/friends', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Get friends using a simpler approach
+    const { data: friendships, error: friendshipsError } = await supabase
+      .from('friendships')
+      .select('friend_id')
+      .eq('user_id', user.id);
+
+    if (friendshipsError) {
+      console.error('Friendships query error:', friendshipsError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch friendships',
+        error: friendshipsError.message
+      });
+    }
+
+    // Get friend details
+    const friendIds = friendships.map(f => f.friend_id);
+    let friends = [];
+    
+    if (friendIds.length > 0) {
+      const { data: friendData, error: friendDataError } = await supabase
+        .from('users')
+        .select('id, username, display_name, pfp')
+        .in('id', friendIds);
+
+      if (friendDataError) {
+        console.error('Friend data query error:', friendDataError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to fetch friend data',
+          error: friendDataError.message
+        });
+      }
+      
+      friends = friendData;
+    }
+
+    res.json({
+      success: true,
+      friends: friends
+    });
+
+  } catch (error) {
+    console.error('Friends fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Supabase URL: ${process.env.SUPABASE_URL}`);

@@ -26,6 +26,73 @@ CREATE TABLE public.chats (
   CONSTRAINT chats_pkey PRIMARY KEY (id),
   CONSTRAINT chats_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id)
 );
+CREATE TABLE public.dm_conversations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  last_message_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT dm_conversations_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.dm_messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  conversation_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  content text,
+  type text NOT NULL DEFAULT 'text'::text CHECK (type = ANY (ARRAY['text'::text, 'image'::text, 'file'::text, 'system'::text])),
+  attachments jsonb DEFAULT '[]'::jsonb,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  reply_to_id uuid,
+  is_edited boolean DEFAULT false,
+  edited_at timestamp with time zone,
+  reactions jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT dm_messages_pkey PRIMARY KEY (id),
+  CONSTRAINT dm_messages_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.dm_conversations(id),
+  CONSTRAINT dm_messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.dm_participants (
+  conversation_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  last_read_at timestamp with time zone,
+  joined_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT dm_participants_pkey PRIMARY KEY (conversation_id, user_id),
+  CONSTRAINT dm_participants_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.dm_conversations(id),
+  CONSTRAINT dm_participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.friend_requests (
+  sender_id uuid NOT NULL,
+  receiver_id uuid NOT NULL,
+  message text,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'accepted'::text, 'declined'::text, 'ignored'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT friend_requests_pkey PRIMARY KEY (sender_id, receiver_id),
+  CONSTRAINT friend_requests_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.users(id),
+  CONSTRAINT friend_requests_receiver_id_fkey FOREIGN KEY (receiver_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.friendships (
+  user_id uuid NOT NULL,
+  friend_id uuid NOT NULL,
+  accepted_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT friendships_pkey PRIMARY KEY (user_id, friend_id),
+  CONSTRAINT friendships_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT friendships_friend_id_fkey FOREIGN KEY (friend_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.message_requests (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  sender_id uuid NOT NULL,
+  receiver_id uuid NOT NULL,
+  content text NOT NULL,
+  attachments jsonb DEFAULT '[]'::jsonb,
+  type text NOT NULL DEFAULT 'text'::text CHECK (type = ANY (ARRAY['text'::text, 'image'::text, 'file'::text])),
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'accepted'::text, 'declined'::text, 'ignored'::text, 'blocked'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  conversation_id uuid,
+  CONSTRAINT message_requests_pkey PRIMARY KEY (id),
+  CONSTRAINT message_requests_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.users(id),
+  CONSTRAINT message_requests_receiver_id_fkey FOREIGN KEY (receiver_id) REFERENCES public.users(id),
+  CONSTRAINT message_requests_conversation_id_fkey FOREIGN KEY (conversation_id) REFERENCES public.dm_conversations(id)
+);
 CREATE TABLE public.messages (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   chat_id uuid NOT NULL,
