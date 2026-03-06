@@ -1360,40 +1360,10 @@ app.post('/api/dm-conversations', async (req, res) => {
       }
     }
 
-    // Create new conversation
-    const { data: conversation, error: conversationError } = await supabase
-      .from('dm_conversations')
-      .insert({})
-      .select()
-      .single();
-
-    if (conversationError) {
-      console.error('Conversation creation error:', conversationError);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to create conversation'
-      });
-    }
-
-    // Add participants
-    const { error: participantsError } = await supabase
-      .from('dm_participants')
-      .insert([
-        { conversation_id: conversation.id, user_id: user.id },
-        { conversation_id: conversation.id, user_id: participant_id }
-      ]);
-
-    if (participantsError) {
-      console.error('Participants addition error:', participantsError);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to add participants'
-      });
-    }
-
+    // No existing conversation - return null (will be created when first message is sent)
     res.json({
       success: true,
-      conversation: conversation
+      conversation: null
     });
 
   } catch (error) {
@@ -1483,10 +1453,10 @@ app.post('/api/dm-messages', async (req, res) => {
     const token = req.headers.authorization?.replace('Bearer ', '');
     const { conversation_id, content } = req.body;
     
-    if (!token || !conversation_id || !content) {
+    if (!token || !content) {
       return res.status(400).json({
         success: false,
-        message: 'Authentication, conversation ID, and content required'
+        message: 'Authentication and content required'
       });
     }
 
@@ -1499,26 +1469,76 @@ app.post('/api/dm-messages', async (req, res) => {
       });
     }
 
-    // Verify user is participant in conversation
-    const { data: participant, error: participantError } = await supabase
-      .from('dm_participants')
-      .select('user_id')
-      .eq('conversation_id', conversation_id)
-      .eq('user_id', user.id)
-      .single();
+    let finalConversationId = conversation_id;
 
-    if (participantError || !participant) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied to this conversation'
-      });
+    // If no conversation_id provided, create new conversation
+    if (!conversation_id) {
+      // Extract participant_id from request body for new conversation
+      const { participant_id } = req.body;
+      
+      if (!participant_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Conversation ID or participant ID required'
+        });
+      }
+
+      // Create new conversation
+      const { data: conversation, error: conversationError } = await supabase
+        .from('dm_conversations')
+        .insert({})
+        .select()
+        .single();
+
+      if (conversationError) {
+        console.error('Conversation creation error:', conversationError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to create conversation'
+        });
+      }
+
+      // Add participants
+      const { error: participantsError } = await supabase
+        .from('dm_participants')
+        .insert([
+          { conversation_id: conversation.id, user_id: user.id },
+          { conversation_id: conversation.id, user_id: participant_id }
+        ]);
+
+      if (participantsError) {
+        console.error('Participants addition error:', participantsError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to add participants'
+        });
+      }
+
+      finalConversationId = conversation.id;
+    } else {
+      // Verify user is participant in existing conversation
+      const { data: participant, error: participantError } = await supabase
+        .from('dm_participants')
+        .select('user_id')
+        .eq('conversation_id', conversation_id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (participantError || !participant) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied to this conversation'
+        });
+      }
+
+      finalConversationId = conversation_id;
     }
 
     // Create message
     const { data: message, error: messageError } = await supabase
       .from('dm_messages')
       .insert({
-        conversation_id: conversation_id,
+        conversation_id: finalConversationId,
         user_id: user.id,
         content: content.trim()
       })

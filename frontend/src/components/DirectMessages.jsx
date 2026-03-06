@@ -274,37 +274,71 @@ const DirectMessages = () => {
   };
 
   const sendDMMessage = async () => {
-    if (!dmInput.trim() || !currentConversation || !selectedFriend) return;
+    if (!dmInput.trim() || !selectedFriend) return;
     
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/dm-messages', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          conversation_id: currentConversation.id,
-          content: dmInput.trim()
-        })
-      });
+      let conversationId = currentConversation?.id;
       
-      const data = await response.json();
-      if (data.success) {
-        // Add message to local state immediately for better UX
-        setDmMessages(prev => [...prev, data.message]);
-        setDmInput('');
+      // If no conversation exists, create one and send first message
+      if (!conversationId) {
+        const response = await fetch('http://localhost:5000/api/dm-messages', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            participant_id: selectedFriend.id,
+            content: dmInput.trim()
+          })
+        });
         
-        // Scroll to bottom after sending
-        setTimeout(() => {
-          const messageHistory = document.querySelector('.dm-message-history');
-          if (messageHistory) {
-            messageHistory.scrollTop = messageHistory.scrollHeight;
-          }
-        }, 100);
+        const data = await response.json();
+        if (data.success) {
+          setCurrentConversation(data.conversation);
+          setDmMessages(prev => [...prev, data.message]);
+          setDmInput('');
+          
+          // Scroll to bottom after sending
+          setTimeout(() => {
+            const messageHistory = document.querySelector('.dm-message-history');
+            if (messageHistory) {
+              messageHistory.scrollTop = messageHistory.scrollHeight;
+            }
+          }, 100);
+        } else {
+          console.error('Failed to send DM message:', data.message);
+        }
       } else {
-        console.error('Failed to send DM message:', data.message);
+        // Send to existing conversation
+        const response = await fetch('http://localhost:5000/api/dm-messages', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            conversation_id: conversationId,
+            content: dmInput.trim()
+          })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+          setDmMessages(prev => [...prev, data.message]);
+          setDmInput('');
+          
+          // Scroll to bottom after sending
+          setTimeout(() => {
+            const messageHistory = document.querySelector('.dm-message-history');
+            if (messageHistory) {
+              messageHistory.scrollTop = messageHistory.scrollHeight;
+            }
+          }, 100);
+        } else {
+          console.error('Failed to send DM message:', data.message);
+        }
       }
     } catch (error) {
       console.error('Failed to send DM message:', error);
@@ -607,6 +641,7 @@ const DirectMessages = () => {
               {/* Profile Header */}
               <div className="profile-header">
                 <div className="profile-avatar-wrapper">
+                  
                   <div className="profile-avatar">
                     {selectedFriend.pfp ? (
                       <img 
