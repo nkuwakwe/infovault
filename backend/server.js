@@ -1320,7 +1320,7 @@ app.get('/api/friends', async (req, res) => {
     const { data: friendships, error: friendshipsError } = await supabase
       .from('friendships')
       .select('friend_id')
-      .eq('user_id', user.id);
+      .or(`user_id.eq.${user.id}`);
 
     if (friendshipsError) {
       console.error('Friendships query error:', friendshipsError);
@@ -1331,8 +1331,26 @@ app.get('/api/friends', async (req, res) => {
       });
     }
 
-    // Get friend details
-    const friendIds = friendships.map(f => f.friend_id);
+    // Get friend details - handle both user_id and friend_id directions
+    const { data: allFriendships, error: allFriendshipsError } = await supabase
+      .from('friendships')
+      .select('user_id, friend_id')
+      .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`);
+
+    if (allFriendshipsError) {
+      console.error('All friendships query error:', allFriendshipsError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch all friendships',
+        error: allFriendshipsError.message
+      });
+    }
+
+    // Extract friend IDs from both directions
+    const friendIds = allFriendships
+      .map(f => f.user_id === user.id ? f.friend_id : f.user_id)
+      .filter(id => id !== user.id); // Ensure we don't include self
+    
     let friends = [];
     
     if (friendIds.length > 0) {
