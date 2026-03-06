@@ -409,7 +409,7 @@ const DirectMessages = () => {
                 <h1 className="profile-display-name">{selectedFriend.display_name || selectedFriend.username}</h1>
                 <div className="profile-username-row">
                   <div className="profile-username">@{selectedFriend.username}</div>
-                  
+                  <div className="profile-tag">USER</div>
                 </div>
                 <div className="profile-bio-box">
                   <div className="profile-bio-title">Bio</div>
