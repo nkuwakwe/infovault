@@ -18,6 +18,7 @@ const DirectMessages = () => {
   const [dmMessages, setDmMessages] = useState([]);
   const [dmInput, setDmInput] = useState('');
   const [currentConversation, setCurrentConversation] = useState(null);
+  const [showFriendsList, setShowFriendsList] = useState(false);
 
   useEffect(() => {
     fetchUserData();
@@ -175,6 +176,7 @@ const DirectMessages = () => {
   const openDMChat = async (friend) => {
     setSelectedFriend(friend);
     setShowProfile(false);
+    setShowFriendsList(false);
     fetchCommonVaults(friend.id);
     
     // Create or get DM conversation
@@ -352,6 +354,15 @@ const DirectMessages = () => {
     }
   };
 
+  const showFriendsManagement = () => {
+    setSelectedFriend(null);
+    setShowProfile(false);
+    setShowFriendsList(true);
+    setCurrentConversation(null);
+    setDmMessages([]);
+    setCommonVaults([]);
+  };
+
   return (
     <div className="dm-container">
       <div className="top-bar">Friends</div>
@@ -379,7 +390,7 @@ const DirectMessages = () => {
           <input className="dm-search" placeholder="Search" />
 
           <div className="dm-list">
-            <div className="dm-item">
+            <div className="dm-item" onClick={showFriendsManagement}>
               <div className="dm-avatar">F</div>
               <div className="dm-name">Friends</div>
             </div>
@@ -414,6 +425,148 @@ const DirectMessages = () => {
 
         {/* 3. Middle Content Area - DM Chat or Profile */}
         <div className="middle-content">
+          {showFriendsList && (
+            <div className="friends-management">
+              <div className="friends-header">
+                <h2>Friends</h2>
+                <p>Manage your friends and friend requests</p>
+              </div>
+              
+              {/* Tabs */}
+              <div className="friends-tabs">
+                <button 
+                  className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('all')}
+                >
+                  All Friends
+                </button>
+                <button 
+                  className={`tab-btn ${activeTab === 'pending' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('pending')}
+                >
+                  Pending
+                </button>
+              </div>
+
+              {/* Content based on active tab */}
+              {activeTab === 'all' && (
+                <div className="all-friends-content">
+                  {friends.length > 0 ? (
+                    friends.map(friend => (
+                      <div key={friend.id} className="friend-item">
+                        <div className="friend-avatar">
+                          {friend.pfp ? (
+                            <img src={friend.pfp} alt={friend.display_name || friend.username} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                          ) : (
+                            getUserInitials(friend)
+                          )}
+                        </div>
+                        <div className="friend-info">
+                          <div className="friend-name">{friend.display_name || friend.username}</div>
+                          <div className="friend-username">@{friend.username}</div>
+                        </div>
+                        <div className="friend-actions">
+                          <button className="friend-btn message" onClick={() => openDMChat(friend)}>
+                            <i className="fas fa-message"></i>
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="no-friends">
+                      <p>No friends yet</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'pending' && (
+                <div className="pending-content">
+                  {/* Request tabs */}
+                  <div className="request-tabs">
+                    <button 
+                      className={`request-tab-btn ${requestTab === 'received' ? 'active' : ''}`}
+                      onClick={() => setRequestTab('received')}
+                    >
+                      Received Requests
+                    </button>
+                    <button 
+                      className={`request-tab-btn ${requestTab === 'sent' ? 'active' : ''}`}
+                      onClick={() => setRequestTab('sent')}
+                    >
+                      Sent Requests
+                    </button>
+                  </div>
+
+                  {requestTab === 'received' && (
+                    <div className="received-requests">
+                      {friendRequests.length > 0 ? (
+                        friendRequests.map(request => (
+                          <div key={request.id} className="request-item">
+                            <div className="request-avatar">
+                              {request.receiver?.pfp ? (
+                                <img src={request.receiver.pfp} alt={request.receiver.display_name || request.receiver.username} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                              ) : (
+                                getUserInitials(request.receiver)
+                              )}
+                            </div>
+                            <div className="request-info">
+                              <div className="request-name">{request.receiver?.display_name || request.receiver?.username}</div>
+                              <div className="request-username">@{request.receiver?.username}</div>
+                            </div>
+                            <div className="request-actions">
+                              <button className="request-btn accept" onClick={() => respondToFriendRequest(request.sender_id, request.receiver_id, 'accept')}>
+                                Accept
+                              </button>
+                              <button className="request-btn decline" onClick={() => respondToFriendRequest(request.sender_id, request.receiver_id, 'decline')}>
+                                Decline
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="no-requests">
+                          <p>No received requests</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {requestTab === 'sent' && (
+                    <div className="sent-requests">
+                      {sentRequests.length > 0 ? (
+                        sentRequests.map(request => (
+                          <div key={request.id} className="request-item">
+                            <div className="request-avatar">
+                              {request.receiver?.pfp ? (
+                                <img src={request.receiver.pfp} alt={request.receiver.display_name || request.receiver.username} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                              ) : (
+                                getUserInitials(request.receiver)
+                              )}
+                            </div>
+                            <div className="request-info">
+                              <div className="request-name">{request.receiver?.display_name || request.receiver?.username}</div>
+                              <div className="request-username">@{request.receiver?.username}</div>
+                            </div>
+                            <div className="request-actions">
+                              <button className="request-btn cancel" onClick={() => cancelFriendRequest(request.sender_id, request.receiver_id)}>
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="no-requests">
+                          <p>No sent requests</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          
           {selectedFriend && !showProfile && (
             <div className="dm-chat">
               {/* Top bar with friend info */}
@@ -623,7 +776,7 @@ const DirectMessages = () => {
             </div>
           )}
 
-          {!selectedFriend && (
+          {!selectedFriend && !showFriendsList && (
             <div className="empty-state">
               <div className="empty-icon">
                 <i className="fas fa-comments"></i>

@@ -933,6 +933,280 @@ body {
   text-align: center;
 }
 
+/* Friends Management Styles */
+.friends-management {
+  height: 100%;
+  background: #0f0a05;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.friends-header {
+  margin-bottom: 24px;
+}
+
+.friends-header h2 {
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.friends-header p {
+  color: #ffffff60;
+  font-size: 14px;
+}
+
+.friends-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(219,176,86,0.12);
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: #ffffff60;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: #ffffff;
+}
+
+.tab-btn.active {
+  color: #dbb056;
+  border-bottom-color: #dbb056;
+}
+
+.all-friends-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.friend-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+.friend-item:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.friend-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #1a1208;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #dbb056;
+  font-weight: 600;
+  margin-right: 12px;
+}
+
+.friend-info {
+  flex: 1;
+}
+
+.friend-name {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.friend-username {
+  color: #ffffff60;
+  font-size: 12px;
+}
+
+.friend-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.friend-btn {
+  background: rgba(219,176,86,0.1);
+  border: 1px solid rgba(219,176,86,0.2);
+  color: #dbb056;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.friend-btn:hover {
+  background: rgba(219,176,86,0.2);
+}
+
+.pending-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.request-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid rgba(219,176,86,0.12);
+}
+
+.request-tab-btn {
+  background: none;
+  border: none;
+  color: #ffffff60;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.request-tab-btn:hover {
+  color: #ffffff;
+}
+
+.request-tab-btn.active {
+  color: #dbb056;
+  border-bottom-color: #dbb056;
+}
+
+.received-requests,
+.sent-requests {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.request-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+.request-item:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.request-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #1a1208;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #dbb056;
+  font-weight: 600;
+  margin-right: 12px;
+}
+
+.request-info {
+  flex: 1;
+}
+
+.request-name {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.request-username {
+  color: #ffffff60;
+  font-size: 12px;
+}
+
+.request-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.request-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.request-btn.accept {
+  background: rgba(34,197,94,0.1);
+  border-color: rgba(34,197,94,0.3);
+  color: #22c55e;
+}
+
+.request-btn.accept:hover {
+  background: rgba(34,197,94,0.2);
+}
+
+.request-btn.decline,
+.request-btn.cancel {
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.3);
+  color: #ef4444;
+}
+
+.request-btn.decline:hover,
+.request-btn.cancel:hover {
+  background: rgba(239,68,68,0.2);
+}
+
+.no-friends,
+.no-requests {
+  text-align: center;
+  padding: 40px 20px;
+  color: #ffffff60;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #ffffff60;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #ffffff80;
+}
+
+.empty-text {
+  font-size: 14px;
+}
+
 .dm-msg-link {
   color: #dbb056;
   text-decoration: underline;
