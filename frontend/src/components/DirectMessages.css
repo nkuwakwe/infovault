@@ -401,6 +401,24 @@ body {
   border-bottom: 3px solid rgba(219,176,86,0.25);
 }
 
+.active-now .profile-banner {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.active-now .profile-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.active-now .profile-banner-gradient {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #2a1f15, #1a1208);
+}
+
 .active-now .profile-avatar-wrapper {
   position: absolute;
   bottom: -35px;

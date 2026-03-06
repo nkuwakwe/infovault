@@ -260,6 +260,13 @@ const DirectMessages = () => {
       const data = await response.json();
       if (data.success) {
         setDmMessages(data.messages || []);
+        // Scroll to bottom after messages load
+        setTimeout(() => {
+          const messageHistory = document.querySelector('.dm-message-history');
+          if (messageHistory) {
+            messageHistory.scrollTop = messageHistory.scrollHeight;
+          }
+        }, 100);
       }
     } catch (error) {
       console.error('Failed to fetch DM messages:', error);
@@ -288,6 +295,14 @@ const DirectMessages = () => {
         // Add message to local state immediately for better UX
         setDmMessages(prev => [...prev, data.message]);
         setDmInput('');
+        
+        // Scroll to bottom after sending
+        setTimeout(() => {
+          const messageHistory = document.querySelector('.dm-message-history');
+          if (messageHistory) {
+            messageHistory.scrollTop = messageHistory.scrollHeight;
+          }
+        }, 100);
       } else {
         console.error('Failed to send DM message:', data.message);
       }
@@ -518,6 +533,17 @@ const DirectMessages = () => {
             <div className="profile-view">
               {/* Profile Header */}
               <div className="profile-header">
+                <div className="profile-banner">
+                  {selectedFriend.banner ? (
+                    <img 
+                      src={selectedFriend.banner} 
+                      alt="Profile Banner" 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <div className="profile-banner-gradient"></div>
+                  )}
+                </div>
                 <div className="profile-avatar-wrapper">
                   <div className="profile-avatar">
                     {selectedFriend.pfp ? (
