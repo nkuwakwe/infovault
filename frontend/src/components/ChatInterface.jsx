@@ -376,7 +376,21 @@ const ChatInterface = () => {
           {members.map((member) => (
             <div key={member.id} className="member">
               <div className="status-dot"></div>
-              {member.display_name || member.username}
+              <div className="member-avatar">
+                {member.pfp ? (
+                  <img 
+                    src={member.pfp} 
+                    alt={member.display_name || member.username} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                  />
+                ) : (
+                  getUserInitials(member)
+                )}
+              </div>
+              <div className="member-info">
+                <div className="member-name">{member.display_name || member.username}</div>
+                <div className="member-role">{member.vault_role}</div>
+              </div>
             </div>
           ))}
         </div>
