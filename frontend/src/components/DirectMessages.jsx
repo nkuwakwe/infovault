@@ -8,18 +8,24 @@ const DirectMessages = () => {
   const [friendUsername, setFriendUsername] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
   const [friendRequests, setFriendRequests] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]);
   const [friends, setFriends] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
+  const [requestTab, setRequestTab] = useState('received'); // 'sent' or 'received'
 
   useEffect(() => {
     fetchUserData();
     fetchFriendRequests();
+    fetchSentRequests();
     fetchFriends();
   }, []);
 
   useEffect(() => {
     if (activeTab === 'all') {
       fetchFriends();
+    } else if (activeTab === 'pending') {
+      fetchFriendRequests();
+      fetchSentRequests();
     }
   }, [activeTab]);
 
@@ -56,6 +62,27 @@ const DirectMessages = () => {
       }
     } catch (error) {
       console.error('Failed to fetch friend requests:', error);
+    }
+  };
+
+  const fetchSentRequests = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('http://localhost:5000/api/friend-requests/sent', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Sent requests data:', data);
+        setSentRequests(data.requests || []);
+      } else {
+        console.error('Failed to fetch sent requests:', response.status);
+      }
+    } catch (error) {
+      console.error('Failed to fetch sent requests:', error);
     }
   };
 
@@ -100,6 +127,7 @@ const DirectMessages = () => {
         setFriendUsername('');
         // Refresh data
         fetchFriendRequests();
+        fetchSentRequests();
         fetchFriends();
       } else {
         alert(data.message || 'Failed to send friend request');
@@ -255,39 +283,79 @@ const DirectMessages = () => {
               </>
             ) : (
               <>
-                <div className="section-title">Pending Requests — {friendRequests.length}</div>
-                {friendRequests.map((request) => (
-                  <div key={request.id} className="friend-row">
-                    <div className="friend-avatar">
-                      {request.sender.pfp ? (
-                        <img 
-                          src={request.sender.pfp} 
-                          alt={request.sender.display_name || request.sender.username} 
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                        />
-                      ) : (
-                        getUserInitials(request.sender)
-                      )}
-                    </div>
-                    <div className="friend-name">{request.sender.display_name || request.sender.username}</div>
-                    <div className="friend-actions">
-                      <button 
-                        className="accept-btn" 
-                        onClick={() => respondToFriendRequest(request, 'accept')}
-                        title="Accept"
-                      >
-                        <i className="fas fa-check"></i>
-                      </button>
-                      <button 
-                        className="decline-btn" 
-                        onClick={() => respondToFriendRequest(request, 'decline')}
-                        title="Decline"
-                      >
-                        <i className="fas fa-times"></i>
-                      </button>
-                    </div>
+                <div className="request-tabs">
+                  <div 
+                    className={`request-tab ${requestTab === 'received' ? 'active' : ''}`}
+                    onClick={() => setRequestTab('received')}
+                  >
+                    Received Requests — {friendRequests.length}
                   </div>
-                ))}
+                  <div 
+                    className={`request-tab ${requestTab === 'sent' ? 'active' : ''}`}
+                    onClick={() => setRequestTab('sent')}
+                  >
+                    Sent Requests — {sentRequests.length}
+                  </div>
+                </div>
+
+                {requestTab === 'received' && (
+                  <div className="requests-section">
+                    {friendRequests.map((request) => (
+                      <div key={request.id} className="friend-row">
+                        <div className="friend-avatar">
+                          {request.sender.pfp ? (
+                            <img 
+                              src={request.sender.pfp} 
+                              alt={request.sender.display_name || request.sender.username} 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                            />
+                          ) : (
+                            getUserInitials(request.sender)
+                          )}
+                        </div>
+                        <div className="friend-name">{request.sender.display_name || request.sender.username}</div>
+                        <div className="friend-actions">
+                          <button 
+                            className="accept-btn" 
+                            onClick={() => respondToFriendRequest(request, 'accept')}
+                            title="Accept"
+                          >
+                            <i className="fas fa-check"></i>
+                          </button>
+                          <button 
+                            className="decline-btn" 
+                            onClick={() => respondToFriendRequest(request, 'decline')}
+                            title="Decline"
+                          >
+                            <i className="fas fa-times"></i>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {requestTab === 'sent' && (
+                  <div className="requests-section">
+                    {sentRequests.map((request) => (
+                      <div key={request.id} className="friend-row">
+                        <div className="friend-avatar">
+                          {request.receiver.pfp ? (
+                            <img 
+                              src={request.receiver.pfp} 
+                              alt={request.receiver.display_name || request.receiver.username} 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                            />
+                          ) : (
+                            getUserInitials(request.receiver)
+                          )}
+                        </div>
+                        <div className="friend-name">{request.receiver.display_name || request.receiver.username}</div>
+                        <div className="friend-status">Pending</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             )}
           </div>

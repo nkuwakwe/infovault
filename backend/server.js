@@ -1152,6 +1152,64 @@ app.post('/api/friend-requests', async (req, res) => {
   }
 });
 
+// Get sent friend requests
+app.get('/api/friend-requests/sent', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Get sent friend requests
+    const { data: requests, error: requestsError } = await supabase
+      .from('friend_requests')
+      .select(`
+        sender_id,
+        receiver_id,
+        message,
+        status,
+        created_at,
+        receiver:receiver_id(id, username, display_name, pfp)
+      `)
+      .eq('sender_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (requestsError) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch sent friend requests',
+        error: requestsError.message
+      });
+    }
+
+    res.json({
+      success: true,
+      requests: requests
+    });
+
+  } catch (error) {
+    console.error('Sent friend requests fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Get pending friend requests
 app.get('/api/friend-requests', async (req, res) => {
   try {
