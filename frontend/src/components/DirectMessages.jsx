@@ -12,6 +12,9 @@ const DirectMessages = () => {
   const [friends, setFriends] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [requestTab, setRequestTab] = useState('received'); // 'sent' or 'received'
+  const [selectedFriend, setSelectedFriend] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
+  const [commonVaults, setCommonVaults] = useState([]);
 
   useEffect(() => {
     fetchUserData();
@@ -166,14 +169,48 @@ const DirectMessages = () => {
     }
   };
 
-  const getUserInitials = (user) => {
-    if (!user) return '?';
-    const name = user.display_name || user.username || '';
-    const parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return parts[0][0].toUpperCase() + parts[1][0].toUpperCase();
+  const openDMChat = (friend) => {
+    setSelectedFriend(friend);
+    setShowProfile(false);
+    fetchCommonVaults(friend.id);
+  };
+
+  const openProfile = (friend) => {
+    setSelectedFriend(friend);
+    setShowProfile(true);
+    fetchCommonVaults(friend.id);
+  };
+
+  const closeDMChat = () => {
+    setSelectedFriend(null);
+    setShowProfile(false);
+    setCommonVaults([]);
+  };
+
+  const fetchCommonVaults = async (friendId) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:5000/api/users/${friendId}/common-vaults`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setCommonVaults(data.commonVaults);
+      } else {
+        console.error('Failed to fetch common vaults:', data.message);
+      }
+    } catch (error) {
+      console.error('Failed to fetch common vaults:', error);
     }
-    return name.substring(0, 2).toUpperCase();
+  };
+
+  const getUserInitials = (user) => {
+    if (!user) return '';
+    const name = user.display_name || user.username;
+    return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
   };
 
   return (
@@ -213,7 +250,7 @@ const DirectMessages = () => {
             <p>Direct Messages</p>
             {friends.length > 0 ? (
               friends.map((friend) => (
-                <div key={friend.id} className="dm-item">
+                <div key={friend.id} className="dm-item" onClick={() => openDMChat(friend)}>
                   <div className="dm-avatar">
                     {friend.pfp ? (
                       <img 
@@ -236,129 +273,171 @@ const DirectMessages = () => {
           </div>
         </div>
 
-        {/* 3. Main Friends content area */}
-        <div className="friends-content">
-          <div className="friends-top">
-            <h1>Friends</h1>
-            <div className="tabs">
-              <div 
-                className={`tab ${activeTab === 'all' ? 'active' : ''}`} 
-                onClick={() => setActiveTab('all')}
-              >
-                All
+        {/* 3. Middle Content Area - DM Chat or Profile */}
+        <div className="middle-content">
+          {selectedFriend && !showProfile && (
+            <div className="dm-chat">
+              {/* Top bar with friend info */}
+              <div className="dm-top-bar">
+                <div className="dm-avatar-small">
+                  {selectedFriend.pfp ? (
+                    <img 
+                      src={selectedFriend.pfp} 
+                      alt={selectedFriend.display_name || selectedFriend.username} 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                    />
+                  ) : (
+                    getUserInitials(selectedFriend)
+                  )}
+                </div>
+                <div className="dm-user-info">
+                  <div className="dm-username">{selectedFriend.display_name || selectedFriend.username}</div>
+                  <div className="dm-status">@{selectedFriend.username}</div>
+                </div>
+                <div className="dm-actions">
+                  <i className="fas fa-phone"></i>
+                  <i className="fas fa-video"></i>
+                  <i className="fas fa-user-plus"></i>
+                  <i className="fas fa-ellipsis-v"></i>
+                </div>
+                <button className="dm-close-btn" onClick={closeDMChat}>
+                  <i className="fas fa-times"></i>
+                </button>
               </div>
-              <div 
-                className={`tab ${activeTab === 'pending' ? 'active' : ''}`} 
-                onClick={() => setActiveTab('pending')}
-              >
-                Pending
-              </div>
-            </div>
-            <button className="add-friend" onClick={() => setShowAddFriendModal(true)}>Add Friend</button>
-          </div>
 
-          <input className="search-friends" placeholder="Search" />
-
-          <div className="friends-list">
-            {activeTab === 'all' ? (
-              <>
-                <div className="section-title">All friends — {friends.length}</div>
-                {friends.map((friend) => (
-                  <div key={friend.id} className="friend-row">
-                    <div className="friend-avatar">
-                      {friend.pfp ? (
-                        <img 
-                          src={friend.pfp} 
-                          alt={friend.display_name || friend.username} 
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                        />
-                      ) : (
-                        getUserInitials(friend)
-                      )}
-                    </div>
-                    <div className="friend-name">{friend.display_name || friend.username}</div>
-                    <div className="friend-status">Online</div>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <>
-                <div className="request-tabs">
-                  <div 
-                    className={`request-tab ${requestTab === 'received' ? 'active' : ''}`}
-                    onClick={() => setRequestTab('received')}
-                  >
-                    Received Requests — {friendRequests.length}
-                  </div>
-                  <div 
-                    className={`request-tab ${requestTab === 'sent' ? 'active' : ''}`}
-                    onClick={() => setRequestTab('sent')}
-                  >
-                    Sent Requests — {sentRequests.length}
+              {/* DM Header */}
+              <div className="dm-header">
+                <div className="dm-big-avatar">
+                  {selectedFriend.pfp ? (
+                    <img 
+                      src={selectedFriend.pfp} 
+                      alt={selectedFriend.display_name || selectedFriend.username} 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                    />
+                  ) : (
+                    getUserInitials(selectedFriend)
+                  )}
+                </div>
+                <div className="dm-display-name">{selectedFriend.display_name || selectedFriend.username}</div>
+                <div className="dm-handle">@{selectedFriend.username}</div>
+                <p className="dm-intro-text">
+                  This is the beginning of your direct message history with {selectedFriend.display_name || selectedFriend.username}.
+                </p>
+                <div className="dm-buttons">
+                  <button className="dm-btn dm-btn-remove">Remove Friend</button>
+                  <button className="dm-btn dm-btn-block">Block</button>
+                </div>
+                <div className="dm-common-vaults">
+                  <div className="dm-common-vaults-title">Vaults in common</div>
+                  <div className="dm-common-vaults-list">
+                    {commonVaults.length > 0 ? (
+                      commonVaults.map((vault) => (
+                        <div key={vault.id} className="dm-common-vault" title={vault.name}>
+                          <div className="dm-common-vault-icon">
+                            {vault.icon ? (
+                              <img 
+                                src={vault.icon} 
+                                alt={vault.name} 
+                                style={{ width: '20px', height: '20px', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <i className="fas fa-server" style={{ fontSize: '14px', color: '#dbb056' }}></i>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="dm-no-common-vaults">No vaults in common</div>
+                    )}
                   </div>
                 </div>
+              </div>
 
-                {requestTab === 'received' && (
-                  <div className="requests-section">
-                    {friendRequests.map((request) => (
-                      <div key={request.id} className="friend-row">
-                        <div className="friend-avatar">
-                          {request.sender.pfp ? (
-                            <img 
-                              src={request.sender.pfp} 
-                              alt={request.sender.display_name || request.sender.username} 
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                            />
-                          ) : (
-                            getUserInitials(request.sender)
-                          )}
-                        </div>
-                        <div className="friend-name">{request.sender.display_name || request.sender.username}</div>
-                        <div className="friend-actions">
-                          <button 
-                            className="accept-btn" 
-                            onClick={() => respondToFriendRequest(request, 'accept')}
-                            title="Accept"
-                          >
-                            <i className="fas fa-check"></i>
-                          </button>
-                          <button 
-                            className="decline-btn" 
-                            onClick={() => respondToFriendRequest(request, 'decline')}
-                            title="Decline"
-                          >
-                            <i className="fas fa-times"></i>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+              {/* Message History */}
+              <div className="dm-message-history">
+                <div className="dm-message-date">March 5, 2025</div>
+                <div className="dm-message-group">
+                  <div className="dm-message you">
+                    <div className="dm-msg-avatar">K</div>
+                    <div className="dm-msg-content">
+                      <a href="#" className="dm-msg-link">Message content here...</a>
+                    </div>
                   </div>
-                )}
+                </div>
+              </div>
 
-                {requestTab === 'sent' && (
-                  <div className="requests-section">
-                    {sentRequests.map((request) => (
-                      <div key={request.id} className="friend-row">
-                        <div className="friend-avatar">
-                          {request.receiver.pfp ? (
-                            <img 
-                              src={request.receiver.pfp} 
-                              alt={request.receiver.display_name || request.receiver.username} 
-                              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                            />
-                          ) : (
-                            getUserInitials(request.receiver)
-                          )}
-                        </div>
-                        <div className="friend-name">{request.receiver.display_name || request.receiver.username}</div>
-                        <div className="friend-status">Pending</div>
-                      </div>
-                    ))}
+              {/* Message Input */}
+              <div className="dm-input-bar">
+                <div className="dm-input-wrapper">
+                  <input type="text" className="dm-message-input" placeholder={`Message @${selectedFriend.display_name || selectedFriend.username}`} />
+                  <div className="dm-input-icons">
+                    <i className="fas fa-plus"></i>
+                    <i className="fas fa-gift"></i>
+                    <i className="fas fa-smile"></i>
                   </div>
-                )}
-              </>
-            )}
-          </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedFriend && showProfile && (
+            <div className="profile-view">
+              {/* Profile Header */}
+              <div className="profile-header">
+                <div className="profile-avatar-wrapper">
+                  <div className="profile-avatar">
+                    {selectedFriend.pfp ? (
+                      <img 
+                        src={selectedFriend.pfp} 
+                        alt={selectedFriend.display_name || selectedFriend.username} 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                      />
+                    ) : (
+                      getUserInitials(selectedFriend)
+                    )}
+                    <div className="profile-status-dot"></div>
+                  </div>
+                </div>
+                <div className="profile-top-controls">
+                  <i className="fas fa-user-plus"></i>
+                  <i className="fas fa-ellipsis-v"></i>
+                </div>
+              </div>
+
+              {/* Profile Content */}
+              <div className="profile-content">
+                <h1 className="profile-display-name">{selectedFriend.display_name || selectedFriend.username}</h1>
+                <div className="profile-username-row">
+                  <div className="profile-username">@{selectedFriend.username}</div>
+                  <div className="profile-tag">USER</div>
+                </div>
+                <div className="profile-bio-box">
+                  <div className="profile-bio-title">Bio</div>
+                  <div className="profile-bio-text">
+                    {selectedFriend.bio || 'No bio available.'}
+                  </div>
+                </div>
+                <div className="profile-member-since">
+                  Member Since<br />
+                  {selectedFriend.created_at ? new Date(selectedFriend.created_at).toLocaleDateString() : 'Unknown'}
+                </div>
+                <button className="profile-view-full-btn">View Full Profile</button>
+              </div>
+              <button className="profile-close-btn" onClick={closeDMChat}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+          )}
+
+          {!selectedFriend && (
+            <div className="empty-state">
+              <div className="empty-icon">
+                <i className="fas fa-comments"></i>
+              </div>
+              <div className="empty-title">Select a conversation</div>
+              <div className="empty-text">Choose a friend from the list to start messaging</div>
+            </div>
+          )}
         </div>
 
         {/* 4. Active Now panel */}

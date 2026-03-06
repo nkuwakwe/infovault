@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Infovault – DM with Ginger</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #0d0804 0%, #000000 100%);
+      color: #e0d4b8;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top-bar {
+      height: 60px;
+      background: #0f0a05;
+      border-bottom: 1px solid rgba(219,176,86,0.18);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 20px;
+      color: #dbb056;
+    }
+
+    .avatar-small {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #33261c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: #dbb056;
+      font-weight: 600;
+    }
+
+    .username {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    .status {
+      font-size: 15px;
+      color: #ffffff70;
+    }
+
+    .actions {
+      margin-left: auto;
+      display: flex;
+      gap: 20px;
+      color: #ffffff90;
+    }
+
+    .actions i {
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .actions i:hover { color: #dbb056; }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: rgba(0,0,0,0.55);
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+    }
+
+    .dm-header {
+      padding: 30px 32px;
+      border-bottom: 1px solid rgba(219,176,86,0.14);
+      text-align: center;
+      background: #0f0a05;
+    }
+
+    .big-avatar {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: #33261c;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      color: #dbb056;
+      font-weight: 600;
+      border: 3px solid rgba(219,176,86,0.25);
+      box-shadow: 0 0 20px rgba(219,176,86,0.15);
+    }
+
+    .dm-username {
+      font-size: 30px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .dm-handle {
+      font-size: 18px;
+      color: #dbb056;
+      margin-bottom: 16px;
+    }
+
+    .intro-text {
+      font-size: 16px;
+      color: #ffffffb0;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin-bottom: 40px;
+    }
+
+    .btn {
+      padding: 14px 32px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn-remove {
+      background: rgba(219,176,86,0.12);
+      color: #dbb056;
+      border: 1px solid rgba(219,176,86,0.3);
+    }
+
+    .btn-remove:hover {
+      background: rgba(219,176,86,0.22);
+    }
+
+    .btn-block {
+      background: #4a1a1a;
+      color: #ff6b6b;
+    }
+
+    .btn-block:hover {
+      background: #5c2222;
+    }
+
+    .no-servers {
+      font-size: 16px;
+      color: #ffffff80;
+      margin-bottom: 10px;
+    }
+
+    .message-history {
+      flex: 1;
+      padding: 32px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+    }
+
+    .message-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .message-date {
+      font-size: 14px;
+      color: #ffffff50;
+      text-align: center;
+      margin: 16px 0;
+    }
+
+    .message {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      max-width: 80%;
+    }
+
+    .message.you {
+      margin-left: auto;
+      flex-direction: row-reverse;
+    }
+
+    .msg-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #33261c;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: #dbb056;
+    }
+
+    .msg-content {
+      background: #1a1208;
+      padding: 16px 20px;
+      border-radius: 12px;
+      border-top-left-radius: 4px;
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    .msg.you .msg-content {
+      background: rgba(219,176,86,0.18);
+      border-top-left-radius: 12px;
+      border-top-right-radius: 4px;
+      color: #ffffff;
+    }
+
+    .msg-link {
+      color: #dbb056;
+      text-decoration: underline;
+      word-break: break-all;
+    }
+
+    .input-bar {
+      height: 80px;
+      background: #0f0a05;
+      border-top: 1px solid rgba(219,176,86,0.18);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 16px;
+    }
+
+    .input-wrapper {
+      flex: 1;
+      position: relative;
+    }
+
+    .message-input {
+      width: 100%;
+      padding: 16px 20px;
+      background: #1a1208;
+      border: 1px solid rgba(219,176,86,0.25);
+      border-radius: 10px;
+      color: #e0d4b8;
+      font-size: 16px;
+      outline: none;
+    }
+
+    .message-input::placeholder {
+      color: #ffffff60;
+    }
+
+    .input-icons {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      gap: 16px;
+      color: #ffffff80;
+    }
+
+    .input-icons i {
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    .input-icons i:hover {
+      color: #dbb056;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar with avatar + name + call/video/share -->
+  <div class="top-bar">
+    <div class="avatar-small">G</div>
+    <div>
+      <div class="username">Ginger</div>
+      <div class="status">ginger_ceo</div>
+    </div>
+    <div class="actions">
+      <i class="fas fa-phone"></i>
+      <i class="fas fa-video"></i>
+      <i class="fas fa-user-plus"></i>
+      <i class="fas fa-ellipsis-v"></i>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- Header / profile section -->
+    <div class="dm-header">
+      <div class="big-avatar">G</div>
+      <div class="dm-username">Ginger</div>
+      <div class="dm-handle">ginger_ceo</div>
+
+      <p class="intro-text">
+        This is the beginning of your direct message history with Ginger.
+      </p>
+
+      <div class="buttons">
+        <button class="btn btn-remove">Remove Friend</button>
+        <button class="btn btn-block">Block</button>
+      </div>
+
+      <div class="no-servers">Vaults in common</div>
+    </div>
+
+    <!-- Message history -->
+    <div class="message-history">
+
+      <div class="message-date">March 5, 2025</div>
+
+      <div class="message-group">
+        <div class="message you">
+          <div class="msg-avatar">K</div>
+          <div class="msg-content">
+            <a href="https://www.etsy.com/listing/1779796237/ultimate-ebook-plr-mrr-bundle-passive" class="msg-link" target="_blank">
+              https://www.etsy.com/listing/1779796237/ultimate-ebook-plr-mrr-bundle-passive
+            </a>
+            <span style="font-size:12px; color:#ffffff60;">(edited)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="message-date">March 6, 2025</div>
+
+      <div class="message-group">
+        <div class="message">
+          <div class="msg-avatar">G</div>
+          <div class="msg-content">
+            <a href="https://discord.gg/clipit" class="msg-link" target="_blank">
+              https://discord.gg/clipit
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Message input bar -->
+    <div class="input-bar">
+      <div class="input-wrapper">
+        <input type="text" class="message-input" placeholder="Message @Ginger" />
+        <div class="input-icons">
+          <i class="fas fa-plus"></i>
+          <i class="fas fa-gift"></i>
+          <i class="fas fa-smile"></i>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

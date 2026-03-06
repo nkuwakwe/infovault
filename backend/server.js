@@ -1210,6 +1210,96 @@ app.get('/api/friend-requests/sent', async (req, res) => {
   }
 });
 
+// Get common vaults between two users
+app.get('/api/users/:userId/common-vaults', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    const { userId } = req.params;
+
+    // Get vaults where both users are members
+    const { data: userVaults, error: userVaultsError } = await supabase
+      .from('vault_members')
+      .select('vault_id')
+      .eq('user_id', user.id);
+
+    if (userVaultsError) {
+      console.error('User vaults fetch error:', userVaultsError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch user vaults'
+      });
+    }
+
+    const { data: otherUserVaults, error: otherUserVaultsError } = await supabase
+      .from('vault_members')
+      .select('vault_id')
+      .eq('user_id', userId);
+
+    if (otherUserVaultsError) {
+      console.error('Other user vaults fetch error:', otherUserVaultsError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch other user vaults'
+      });
+    }
+
+    // Find common vault IDs
+    const userVaultIds = userVaults.map(item => item.vault_id);
+    const otherUserVaultIds = otherUserVaults.map(item => item.vault_id);
+    const commonVaultIds = userVaultIds.filter(id => otherUserVaultIds.includes(id));
+
+    if (commonVaultIds.length === 0) {
+      return res.json({
+        success: true,
+        commonVaults: []
+      });
+    }
+
+    // Get vault details for common vaults
+    const { data: commonVaults, error: commonVaultsError } = await supabase
+      .from('vaults')
+      .select('id, name, icon')
+      .in('id', commonVaultIds);
+
+    if (commonVaultsError) {
+      console.error('Common vaults fetch error:', commonVaultsError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch common vaults'
+      });
+    }
+
+    res.json({
+      success: true,
+      commonVaults: commonVaults
+    });
+
+  } catch (error) {
+    console.error('Common vaults fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Get pending friend requests
 app.get('/api/friend-requests', async (req, res) => {
   try {

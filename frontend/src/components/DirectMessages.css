@@ -114,18 +114,22 @@ body {
 .dm-item {
   display: flex;
   align-items: center;
-  padding: 8px 14px;
-  margin: 1px 8px;
-  border-radius: 6px;
+  gap: 12px;
+  padding: 8px 16px;
+  border-radius: 8px;
   cursor: pointer;
-  color: #ffffffb0;
-  transition: all 0.15s;
+  transition: all 0.2s;
+  margin: 0 8px;
 }
 
-.dm-item:hover,
-.dm-item.active {
-  background: rgba(219,176,86,0.14);
+.dm-item:hover {
+  background: rgba(255,255,255,0.05);
   color: #ffffff;
+}
+
+.dm-item.active {
+  background: rgba(219,176,86,0.18);
+  color: #dbb056;
 }
 
 .dm-avatar {
@@ -349,14 +353,602 @@ body {
 }
 
 /* ────────────────────────────────────────
-   4. Active Now sidebar
-─────────────────────────────────────── */
+   2. DM Panel / Friends List */
+.dm-panel {
+  flex: 0 0 240px;
+  background: rgba(0,0,0,0.35);
+  border-right: 1px solid rgba(219,176,86,0.18);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 3. Middle Content Area */
+.middle-content {
+  flex: 1;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 4. Active Now sidebar */
 .active-now {
-  width: 240px;
-  background: rgba(0,0,0,0.6);
+  flex: 0 0 200px;
+  background: rgba(0,0,0,0.35);
   border-left: 1px solid rgba(219,176,86,0.18);
   padding: 20px;
   overflow-y: auto;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff60;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  color: #ffffff40;
+}
+
+.empty-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #ffffff80;
+}
+
+.empty-text {
+  font-size: 14px;
+  color: #ffffff60;
+}
+
+/* ────────────────────────────────────────
+   5. DM Chat View
+─────────────────────────────────────── */
+.dm-chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.dm-top-bar {
+  height: 60px;
+  background: #0f0a05;
+  border-bottom: 1px solid rgba(219,176,86,0.18);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  color: #dbb056;
+  position: relative;
+}
+
+.dm-avatar-small {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #33261c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #dbb056;
+  font-weight: 600;
+}
+
+.dm-user-info {
+  flex: 1;
+}
+
+.dm-username {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.dm-status {
+  font-size: 15px;
+  color: #ffffff70;
+}
+
+.dm-actions {
+  display: flex;
+  gap: 20px;
+  color: #ffffff90;
+}
+
+.dm-actions i {
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.dm-actions i:hover { color: #dbb056; }
+
+.dm-close-btn {
+  background: none;
+  border: none;
+  color: #ffffff80;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.dm-close-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: #ffffff;
+}
+
+.dm-header {
+  padding: 30px 32px;
+  border-bottom: 1px solid rgba(219,176,86,0.14);
+  text-align: center;
+  background: #0f0a05;
+}
+
+.dm-big-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: #33261c;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  color: #dbb056;
+  font-weight: 600;
+  border: 3px solid rgba(219,176,86,0.25);
+  box-shadow: 0 0 20px rgba(219,176,86,0.15);
+}
+
+.dm-display-name {
+  font-size: 30px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.dm-handle {
+  font-size: 18px;
+  color: #dbb056;
+  margin-bottom: 16px;
+}
+
+.dm-intro-text {
+  font-size: 16px;
+  color: #ffffffb0;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.dm-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 40px;
+}
+
+.dm-btn {
+  padding: 14px 32px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.dm-btn-remove {
+  background: rgba(219,176,86,0.12);
+  color: #dbb056;
+  border: 1px solid rgba(219,176,86,0.3);
+}
+
+.dm-btn-remove:hover {
+  background: rgba(219,176,86,0.22);
+}
+
+.dm-btn-block {
+  background: #4a1a1a;
+  color: #ff6b6b;
+}
+
+.dm-btn-block:hover {
+  background: #5c2222;
+}
+
+.dm-no-servers {
+  font-size: 16px;
+  color: #ffffff80;
+  margin-bottom: 10px;
+}
+
+.dm-common-vaults {
+  margin-top: 20px;
+}
+
+.dm-common-vaults-title {
+  font-size: 16px;
+  color: #ffffff80;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.dm-common-vaults-list {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.dm-common-vault {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(219,176,86,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.dm-common-vault:hover {
+  background: rgba(219,176,86,0.15);
+  border-color: rgba(219,176,86,0.4);
+  transform: translateY(-2px);
+}
+
+.dm-common-vault-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.dm-no-common-vaults {
+  font-size: 14px;
+  color: #ffffff60;
+  text-align: center;
+  font-style: italic;
+}
+
+.dm-message-history {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.dm-message-date {
+  font-size: 14px;
+  color: #ffffff50;
+  text-align: center;
+  margin: 16px 0;
+}
+
+.dm-message-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dm-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: 80%;
+}
+
+.dm-message.you {
+  margin-left: auto;
+  flex-direction: row-reverse;
+}
+
+.dm-msg-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #33261c;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #dbb056;
+}
+
+.dm-msg-content {
+  background: #1a1208;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border-top-left-radius: 4px;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.dm-message.you .dm-msg-content {
+  background: rgba(219,176,86,0.18);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 4px;
+  color: #ffffff;
+}
+
+.dm-msg-link {
+  color: #dbb056;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.dm-input-bar {
+  height: 80px;
+  background: #0f0a05;
+  border-top: 1px solid rgba(219,176,86,0.18);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 16px;
+}
+
+.dm-input-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+.dm-message-input {
+  width: 100%;
+  padding: 16px 20px;
+  background: #1a1208;
+  border: 1px solid rgba(219,176,86,0.25);
+  border-radius: 10px;
+  color: #e0d4b8;
+  font-size: 16px;
+  outline: none;
+}
+
+.dm-message-input::placeholder {
+  color: #ffffff60;
+}
+
+.dm-input-icons {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 16px;
+  color: #ffffff80;
+}
+
+.dm-input-icons i {
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.dm-input-icons i:hover {
+  color: #dbb056;
+}
+
+/* ────────────────────────────────────────
+   6. Profile View
+─────────────────────────────────────── */
+.profile-view {
+  flex: 1;
+  background: rgba(26, 18, 8, 0.92);
+  border: 1px solid rgba(219, 176, 86, 0.22);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  margin: 20px auto;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(219,176,86,0.08);
+  position: relative;
+  align-self: flex-start;
+}
+
+.profile-header {
+  height: 140px;
+  background: linear-gradient(135deg, #1a1208, #0f0a05);
+  position: relative;
+  border-bottom: 3px solid rgba(219,176,86,0.25);
+}
+
+.profile-avatar-wrapper {
+  position: absolute;
+  bottom: -40px;
+  left: 24px;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #0d0804;
+  padding: 6px;
+  border: 4px solid #1a1208;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+}
+
+.profile-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #33261c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  color: #dbb056;
+  font-weight: 600;
+  border: 3px solid rgba(219,176,86,0.4);
+  overflow: hidden;
+  position: relative;
+}
+
+.profile-avatar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(219,176,86,0.12), transparent 60%);
+  pointer-events: none;
+}
+
+.profile-status-dot {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  background: #23a55a;
+  border: 3px solid #1a1208;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(35,165,90,0.3);
+}
+
+.profile-top-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 16px;
+  color: #ffffff90;
+}
+
+.profile-top-controls i {
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.profile-top-controls i:hover {
+  color: #dbb056;
+}
+
+.profile-content {
+  padding: 56px 24px 32px;
+  text-align: center;
+}
+
+.profile-display-name {
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.profile-username-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.profile-username {
+  font-size: 15px;
+  color: #dbb056;
+  font-weight: 500;
+}
+
+.profile-tag {
+  background: rgba(219,176,86,0.18);
+  color: #e6c24f;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(219,176,86,0.35);
+}
+
+.profile-bio-box {
+  background: #1a1208;
+  border: 1px solid rgba(219,176,86,0.18);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 24px 0;
+  text-align: left;
+}
+
+.profile-bio-title {
+  color: #dbb056;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.profile-bio-text {
+  color: #ffffffc0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.profile-bio-link {
+  color: #dbb056;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.profile-bio-link:hover {
+  color: #e6c24f;
+  text-decoration: underline;
+}
+
+.profile-member-since {
+  font-size: 13.5px;
+  color: #ffffff80;
+  margin: 24px 0;
+}
+
+.profile-view-full-btn {
+  background: linear-gradient(90deg, #d4af37, #e6c24f);
+  color: #1a1208;
+  border: none;
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 6px 20px rgba(212,175,55,0.25);
+}
+
+.profile-view-full-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(212,175,55,0.35);
+}
+
+.profile-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: #ffffff80;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.profile-close-btn:hover {
+  background: rgba(255,255,255,0.2);
+  color: #ffffff;
 }
 
 .active-title {
