@@ -15,6 +15,9 @@ const DirectMessages = () => {
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
   const [commonVaults, setCommonVaults] = useState([]);
+  const [dmMessages, setDmMessages] = useState([]);
+  const [dmInput, setDmInput] = useState('');
+  const [currentConversation, setCurrentConversation] = useState(null);
 
   useEffect(() => {
     fetchUserData();
@@ -169,10 +172,16 @@ const DirectMessages = () => {
     }
   };
 
-  const openDMChat = (friend) => {
+  const openDMChat = async (friend) => {
     setSelectedFriend(friend);
     setShowProfile(false);
     fetchCommonVaults(friend.id);
+    
+    // Create or get DM conversation
+    const conversation = await createOrGetDMConversation(friend.id);
+    if (conversation) {
+      await fetchDMMessages(conversation.id);
+    }
   };
 
   const openProfile = (friend) => {
@@ -211,6 +220,87 @@ const DirectMessages = () => {
     if (!user) return '';
     const name = user.display_name || user.username;
     return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  // DM Messaging Functions
+  const createOrGetDMConversation = async (friendId) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('http://localhost:5000/api/dm-conversations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          participant_id: friendId
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setCurrentConversation(data.conversation);
+        return data.conversation;
+      }
+    } catch (error) {
+      console.error('Failed to create/get DM conversation:', error);
+    }
+    return null;
+  };
+
+  const fetchDMMessages = async (conversationId) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:5000/api/dm-conversations/${conversationId}/messages`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setDmMessages(data.messages || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch DM messages:', error);
+    }
+  };
+
+  const sendDMMessage = async () => {
+    if (!dmInput.trim() || !currentConversation || !selectedFriend) return;
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('http://localhost:5000/api/dm-messages', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          conversation_id: currentConversation.id,
+          content: dmInput.trim()
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        // Add message to local state immediately for better UX
+        setDmMessages(prev => [...prev, data.message]);
+        setDmInput('');
+      } else {
+        console.error('Failed to send DM message:', data.message);
+      }
+    } catch (error) {
+      console.error('Failed to send DM message:', error);
+    }
+  };
+
+  const handleDMKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendDMMessage();
+    }
   };
 
   return (
@@ -355,21 +445,65 @@ const DirectMessages = () => {
 
               {/* Message History */}
               <div className="dm-message-history">
-                <div className="dm-message-date">March 5, 2025</div>
-                <div className="dm-message-group">
-                  <div className="dm-message you">
-                    <div className="dm-msg-avatar">K</div>
-                    <div className="dm-msg-content">
-                      <a href="#" className="dm-msg-link">Message content here...</a>
+                {dmMessages.length > 0 ? (
+                  dmMessages.map((message, index) => {
+                    const isCurrentUser = message.user_id === currentUser?.id;
+                    const messageUser = isCurrentUser ? currentUser : selectedFriend;
+                    
+                    return (
+                      <div key={message.id}>
+                        {index === 0 && (
+                          <div className="dm-message-date">
+                            {new Date(message.created_at).toLocaleDateString()}
+                          </div>
+                        )}
+                        <div className={`dm-message ${isCurrentUser ? 'you' : 'other'}`}>
+                          <div className="dm-msg-avatar">
+                            {messageUser?.pfp ? (
+                              <img 
+                                src={messageUser.pfp} 
+                                alt={messageUser.display_name || messageUser.username} 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                              />
+                            ) : (
+                              getUserInitials(messageUser)
+                            )}
+                          </div>
+                          <div className="dm-msg-content">
+                            {!isCurrentUser && (
+                              <div className="dm-msg-username">
+                                {messageUser.display_name || messageUser.username}
+                              </div>
+                            )}
+                            <div className="dm-msg-text">{message.content}</div>
+                            <div className="dm-msg-timestamp">
+                              {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="dm-welcome-message">
+                    <div className="dm-welcome-text">
+                      This is the beginning of your direct message history with {selectedFriend.display_name || selectedFriend.username}.
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Message Input */}
               <div className="dm-input-bar">
                 <div className="dm-input-wrapper">
-                  <input type="text" className="dm-message-input" placeholder={`Message @${selectedFriend.display_name || selectedFriend.username}`} />
+                  <input 
+                    type="text" 
+                    className="dm-message-input" 
+                    placeholder={`Message @${selectedFriend.display_name || selectedFriend.username}`}
+                    value={dmInput}
+                    onChange={(e) => setDmInput(e.target.value)}
+                    onKeyPress={handleDMKeyPress}
+                  />
                   <div className="dm-input-icons">
                     <i className="fas fa-plus"></i>
                     <i className="fas fa-gift"></i>

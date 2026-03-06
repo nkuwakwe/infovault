@@ -874,6 +874,47 @@ body {
   color: #ffffff;
 }
 
+.dm-message.other {
+  margin-right: auto;
+}
+
+.dm-message.other .dm-msg-content {
+  background: #1a1208;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 12px;
+}
+
+.dm-msg-username {
+  font-size: 14px;
+  font-weight: 600;
+  color: #dbb056;
+  margin-bottom: 4px;
+}
+
+.dm-msg-text {
+  color: #ffffff;
+  line-height: 1.4;
+}
+
+.dm-msg-timestamp {
+  font-size: 12px;
+  color: #ffffff60;
+  margin-top: 4px;
+}
+
+.dm-welcome-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.dm-welcome-text {
+  color: #ffffff60;
+  font-size: 16px;
+  text-align: center;
+}
+
 .dm-msg-link {
   color: #dbb056;
   text-decoration: underline;

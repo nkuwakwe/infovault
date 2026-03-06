@@ -1300,6 +1300,259 @@ app.get('/api/users/:userId/common-vaults', async (req, res) => {
   }
 });
 
+// Create or get DM conversation
+app.post('/api/dm-conversations', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { participant_id } = req.body;
+    
+    if (!token || !participant_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Authentication and participant ID required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if conversation already exists
+    const { data: userConversations, error: userConversationsError } = await supabase
+      .from('dm_participants')
+      .select('conversation_id')
+      .eq('user_id', user.id);
+
+    if (userConversationsError) {
+      console.error('User conversations fetch error:', userConversationsError);
+    }
+
+    if (userConversations && userConversations.length > 0) {
+      const conversationIds = userConversations.map(c => c.conversation_id);
+      
+      const { data: existingConversation, error: existingError } = await supabase
+        .from('dm_participants')
+        .select('conversation_id')
+        .eq('user_id', participant_id)
+        .in('conversation_id', conversationIds);
+
+      if (existingError) {
+        console.error('Existing conversation check error:', existingError);
+      }
+
+      if (existingConversation && existingConversation.length > 0) {
+        // Get full conversation details
+        const { data: conversationDetails, error: detailsError } = await supabase
+          .from('dm_conversations')
+          .select('*')
+          .eq('id', existingConversation[0].conversation_id)
+          .single();
+
+        return res.json({
+          success: true,
+          conversation: conversationDetails
+        });
+      }
+    }
+
+    // Create new conversation
+    const { data: conversation, error: conversationError } = await supabase
+      .from('dm_conversations')
+      .insert({})
+      .select()
+      .single();
+
+    if (conversationError) {
+      console.error('Conversation creation error:', conversationError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create conversation'
+      });
+    }
+
+    // Add participants
+    const { error: participantsError } = await supabase
+      .from('dm_participants')
+      .insert([
+        { conversation_id: conversation.id, user_id: user.id },
+        { conversation_id: conversation.id, user_id: participant_id }
+      ]);
+
+    if (participantsError) {
+      console.error('Participants addition error:', participantsError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to add participants'
+      });
+    }
+
+    res.json({
+      success: true,
+      conversation: conversation
+    });
+
+  } catch (error) {
+    console.error('DM conversation creation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get DM messages
+app.get('/api/dm-conversations/:conversationId/messages', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { conversationId } = req.params;
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Verify user is participant in conversation
+    const { data: participant, error: participantError } = await supabase
+      .from('dm_participants')
+      .select('user_id')
+      .eq('conversation_id', conversationId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (participantError || !participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this conversation'
+      });
+    }
+
+    // Get messages
+    const { data: messages, error: messagesError } = await supabase
+      .from('dm_messages')
+      .select(`
+        id,
+        content,
+        created_at,
+        user_id,
+        user:user_id(id, username, display_name, pfp)
+      `)
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true });
+
+    if (messagesError) {
+      console.error('Messages fetch error:', messagesError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch messages'
+      });
+    }
+
+    res.json({
+      success: true,
+      messages: messages
+    });
+
+  } catch (error) {
+    console.error('DM messages fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Send DM message
+app.post('/api/dm-messages', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { conversation_id, content } = req.body;
+    
+    if (!token || !conversation_id || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Authentication, conversation ID, and content required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Verify user is participant in conversation
+    const { data: participant, error: participantError } = await supabase
+      .from('dm_participants')
+      .select('user_id')
+      .eq('conversation_id', conversation_id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (participantError || !participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this conversation'
+      });
+    }
+
+    // Create message
+    const { data: message, error: messageError } = await supabase
+      .from('dm_messages')
+      .insert({
+        conversation_id: conversation_id,
+        user_id: user.id,
+        content: content.trim()
+      })
+      .select(`
+        id,
+        content,
+        created_at,
+        user_id,
+        user:user_id(id, username, display_name, pfp)
+      `)
+      .single();
+
+    if (messageError) {
+      console.error('Message creation error:', messageError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send message'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: message
+    });
+
+  } catch (error) {
+    console.error('DM message send error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Get pending friend requests
 app.get('/api/friend-requests', async (req, res) => {
   try {
