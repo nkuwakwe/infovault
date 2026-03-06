@@ -409,7 +409,7 @@ const DirectMessages = () => {
                 <h1 className="profile-display-name">{selectedFriend.display_name || selectedFriend.username}</h1>
                 <div className="profile-username-row">
                   <div className="profile-username">@{selectedFriend.username}</div>
-                  <div className="profile-tag">USER</div>
+                  
                 </div>
                 <div className="profile-bio-box">
                   <div className="profile-bio-title">Bio</div>
@@ -440,13 +440,61 @@ const DirectMessages = () => {
           )}
         </div>
 
-        {/* 4. Active Now panel */}
+        {/* 4. Right panel - Profile or Active Now */}
         <div className="active-now">
-          <div className="active-title">Active Now</div>
-          <div className="quiet-box">
-            <strong>It's quiet for now...</strong><br></br>
-            When a friend starts an activity—like playing a game or hanging out in voice—we'll show it here!
-          </div>
+          {selectedFriend ? (
+            <div className="profile-view">
+              {/* Profile Header */}
+              <div className="profile-header">
+                <div className="profile-avatar-wrapper">
+                  <div className="profile-avatar">
+                    {selectedFriend.pfp ? (
+                      <img 
+                        src={selectedFriend.pfp} 
+                        alt={selectedFriend.display_name || selectedFriend.username} 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                      />
+                    ) : (
+                      getUserInitials(selectedFriend)
+                    )}
+                    <div className="profile-status-dot"></div>
+                  </div>
+                </div>
+                <div className="profile-top-controls">
+                  <i className="fas fa-user-plus"></i>
+                  <i className="fas fa-ellipsis-v"></i>
+                </div>
+              </div>
+
+              {/* Profile Content */}
+              <div className="profile-content">
+                <h1 className="profile-display-name">{selectedFriend.display_name || selectedFriend.username}</h1>
+                <div className="profile-username-row">
+                  <div className="profile-username">@{selectedFriend.username}</div>
+                  <div className="profile-tag">USER</div>
+                </div>
+                <div className="profile-bio-box">
+                  <div className="profile-bio-title">Bio</div>
+                  <div className="profile-bio-text">
+                    {selectedFriend.bio || 'No bio available.'}
+                  </div>
+                </div>
+                <div className="profile-member-since">
+                  Member Since<br />
+                  {selectedFriend.created_at ? new Date(selectedFriend.created_at).toLocaleDateString() : 'Unknown'}
+                </div>
+                <button className="profile-view-full-btn">View Full Profile</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="active-title">Active Now</div>
+              <div className="quiet-box">
+                <strong>It's quiet for now...</strong><br></br>
+                When a friend starts an activity—like playing a game or hanging out in voice—we'll show it here!
+              </div>
+            </>
+          )}
         </div>
       </div>
 

@@ -1504,7 +1504,7 @@ app.get('/api/friends', async (req, res) => {
     if (friendIds.length > 0) {
       const { data: friendData, error: friendDataError } = await supabase
         .from('users')
-        .select('id, username, display_name, pfp')
+        .select('id, username, display_name, pfp, bio, created_at')
         .in('id', friendIds);
 
       if (friendDataError) {

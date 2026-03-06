@@ -378,6 +378,193 @@ body {
   border-left: 1px solid rgba(219,176,86,0.18);
   padding: 20px;
   overflow-y: auto;
+  position: relative;
+}
+
+/* Profile View in Right Panel */
+.active-now .profile-view {
+  background: rgba(26, 18, 8, 0.92);
+  border: 1px solid rgba(219, 176, 86, 0.22);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(219,176,86,0.08);
+  position: relative;
+  height: fit-content;
+}
+
+.active-now .profile-header {
+  height: 120px;
+  background: linear-gradient(135deg, #1a1208, #0f0a05);
+  position: relative;
+  border-bottom: 3px solid rgba(219,176,86,0.25);
+}
+
+.active-now .profile-avatar-wrapper {
+  position: absolute;
+  bottom: -35px;
+  left: 16px;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #0d0804;
+  padding: 4px;
+  border: 3px solid #1a1208;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+
+.active-now .profile-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #33261c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: #dbb056;
+  font-weight: 600;
+  border: 2px solid rgba(219,176,86,0.4);
+  overflow: hidden;
+  position: relative;
+}
+
+.active-now .profile-avatar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(219,176,86,0.12), transparent 60%);
+  pointer-events: none;
+}
+
+.active-now .profile-status-dot {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 14px;
+  height: 14px;
+  background: #23a55a;
+  border: 2px solid #1a1208;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(35,165,90,0.3);
+}
+
+.active-now .profile-top-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 12px;
+  color: #ffffff90;
+}
+
+.active-now .profile-top-controls i {
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.active-now .profile-top-controls i:hover {
+  color: #dbb056;
+}
+
+.active-now .profile-content {
+  padding: 48px 16px 24px;
+  text-align: center;
+}
+
+.active-now .profile-display-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.active-now .profile-username-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.active-now .profile-username {
+  font-size: 13px;
+  color: #dbb056;
+  font-weight: 500;
+}
+
+.active-now .profile-tag {
+  background: rgba(219,176,86,0.18);
+  color: #e6c24f;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(219,176,86,0.35);
+}
+
+.active-now .profile-bio-box {
+  background: #1a1208;
+  border: 1px solid rgba(219,176,86,0.18);
+  border-radius: 10px;
+  padding: 16px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.active-now .profile-bio-title {
+  color: #dbb056;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.active-now .profile-bio-text {
+  color: #ffffffc0;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.active-now .profile-bio-link {
+  color: #dbb056;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.active-now .profile-bio-link:hover {
+  color: #e6c24f;
+  text-decoration: underline;
+}
+
+.active-now .profile-member-since {
+  font-size: 12px;
+  color: #ffffff80;
+  margin: 20px 0;
+}
+
+.active-now .profile-view-full-btn {
+  background: linear-gradient(90deg, #d4af37, #e6c24f);
+  color: #1a1208;
+  border: none;
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(212,175,55,0.25);
+}
+
+.active-now .profile-view-full-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(212,175,55,0.35);
 }
 
 .empty-state {
@@ -837,6 +1024,7 @@ body {
 .profile-content {
   padding: 56px 24px 32px;
   text-align: center;
+  
 }
 
 .profile-display-name {
@@ -858,16 +1046,6 @@ body {
   font-size: 15px;
   color: #dbb056;
   font-weight: 500;
-}
-
-.profile-tag {
-  background: rgba(219,176,86,0.18);
-  color: #e6c24f;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(219,176,86,0.35);
 }
 
 .profile-bio-box {
