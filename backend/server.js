@@ -711,6 +711,148 @@ app.get('/api/user/profile', async (req, res) => {
   }
 });
 
+// Update message
+app.put('/api/messages/:messageId', async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { content } = req.body;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token || !messageId || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Get message to verify ownership
+    const { data: messageData, error: messageError } = await supabase
+      .from('messages')
+      .select(`
+        id,
+        content,
+        chat_id,
+        user_id,
+        created_at
+      `)
+      .eq('id', messageId)
+      .single();
+
+    if (messageError || !messageData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    // Check if user is member of vault that contains this chat
+    const { data: chatData, error: chatError } = await supabase
+      .from('chats')
+      .select(`
+        id,
+        category_id,
+        categories!inner(
+          id,
+          vault_id
+        )
+      `)
+      .eq('id', messageData.chat_id)
+      .single();
+
+    if (chatError || !chatData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    const vaultId = chatData.categories.vault_id;
+
+    const { data: memberCheck, error: memberError } = await supabase
+      .from('vault_members')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('vault_id', vaultId)
+      .single();
+
+    if (memberError || !memberCheck) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this chat'
+      });
+    }
+
+    // Verify user owns the message
+    if (messageData.user_id !== user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Can only edit your own messages'
+      });
+    }
+
+    // Update message
+    const { data, error } = await supabase
+      .from('messages')
+      .update({
+        content: content.trim(),
+        is_edited: true,
+        edited_at: new Date().toISOString()
+      })
+      .eq('id', messageId)
+      .select(`
+        id,
+        content,
+        created_at,
+        updated_at,
+        is_edited,
+        edited_at,
+        pinned_position,
+        reactions,
+        reply_to_id,
+        user_id,
+        users!inner(
+          id,
+          username,
+          display_name,
+          pfp
+        )
+      `)
+      .single();
+
+    if (error) {
+      console.error('Message update error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update message',
+        error: error.message
+      });
+    }
+
+    console.log('Message updated successfully:', data);
+    
+    res.json({
+      success: true,
+      message: data
+    });
+
+  } catch (error) {
+    console.error('Message update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Get chat messages
 app.get('/api/chats/:chatId/messages', async (req, res) => {
   try {

@@ -17,6 +17,8 @@ const ChatInterface = () => {
   const [directMessage, setDirectMessage] = useState('');
   const [replyingTo, setReplyingTo] = useState(null); // { id, content, user }
   const [showReplyMenu, setShowReplyMenu] = useState(null); // message id
+  const [editingMessage, setEditingMessage] = useState(null); // { id, content, originalContent }
+  const [editInput, setEditInput] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -258,6 +260,57 @@ const ChatInterface = () => {
     setShowReplyMenu(messageId);
   };
 
+  const handleEdit = (message) => {
+    setEditingMessage({
+      id: message.id,
+      content: message.content,
+      originalContent: message.content
+    });
+    setEditInput(message.content);
+    setShowReplyMenu(null);
+    // Focus the input
+    document.querySelector('.input-bar input')?.focus();
+  };
+
+  const cancelEdit = () => {
+    setEditingMessage(null);
+    setEditInput('');
+  };
+
+  const saveEdit = async () => {
+    if (!editingMessage || !editInput.trim()) return;
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:5000/api/messages/${editingMessage.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: editInput.trim()
+        })
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        // Update message in local state
+        setMessages(prev => prev.map(msg => 
+          msg.id === editingMessage.id 
+            ? { ...data.message, is_edited: true, edited_at: new Date().toISOString() }
+            : msg
+        ));
+        setEditingMessage(null);
+        setEditInput('');
+      } else {
+        console.error('Failed to edit message:', data.message);
+      }
+    } catch (error) {
+      console.error('Failed to edit message:', error);
+    }
+  };
+
   const handleClickOutside = (e) => {
     if (!e.target.closest('.reply-menu') && !e.target.closest('.message')) {
       setShowReplyMenu(null);
@@ -418,6 +471,9 @@ const ChatInterface = () => {
                   <span className="timestamp">
                     {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
+                  {message.is_edited && (
+                    <span className="edited-indicator">(Edited)</span>
+                  )}
                   <div className="text">{message.content}</div>
                 </div>
                 
@@ -427,6 +483,11 @@ const ChatInterface = () => {
                     <button onClick={() => handleReply(message)} className="reply-btn">
                       <i className="fas fa-reply"></i> Reply
                     </button>
+                    {message.user_id === currentUser?.id && (
+                      <button onClick={() => handleEdit(message)} className="edit-btn">
+                        <i className="fas fa-edit"></i> Edit
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -452,13 +513,34 @@ const ChatInterface = () => {
               </div>
             )}
             
+            {/* Edit indicator */}
+            {editingMessage && (
+              <div className="edit-indicator">
+                <div className="edit-info">
+                  <span className="editing-text">Editing message</span>
+                  <button className="cancel-edit-btn" onClick={cancelEdit}>
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
+              </div>
+            )}
+            
             <input 
               type="text" 
-              placeholder={selectedChat ? `Message #${selectedChat.name}` : "Select a channel..."}
+              placeholder={editingMessage ? "Edit message..." : (selectedChat ? `Message #${selectedChat.name}` : "Select a channel...")}
               disabled={!selectedChat}
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              onKeyPress={handleKeyPress}
+              value={editingMessage ? editInput : messageInput}
+              onChange={(e) => editingMessage ? setEditInput(e.target.value) : setMessageInput(e.target.value)}
+              onKeyPress={editingMessage ? (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  saveEdit();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  cancelEdit();
+                }
+              } : handleKeyPress}
             />
             <div className="input-icons">
               <i className="fas fa-plus"></i>

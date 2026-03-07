@@ -461,6 +461,79 @@ body {
   font-size: 12px;
 }
 
+.edit-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s ease;
+  white-space: nowrap;
+}
+
+.edit-btn:hover {
+  background: rgba(34,197,94,0.1);
+  color: #22c55e;
+}
+
+.edit-btn i {
+  font-size: 12px;
+}
+
+.edited-indicator {
+  color: #ffffff60;
+  font-size: 12px;
+  font-style: italic;
+  margin-left: 8px;
+}
+
+.edit-indicator {
+  background: rgba(34,197,94,0.1);
+  border-left: 3px solid #22c55e;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.edit-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editing-text {
+  color: #22c55e;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.cancel-edit-btn {
+  background: none;
+  border: none;
+  color: #ffffff60;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.cancel-edit-btn:hover {
+  color: #ffffff;
+  background: rgba(255,255,255,0.1);
+}
+
+.cancel-edit-btn i {
+  font-size: 10px;
+}
+
 .reply-indicator {
   background: rgba(219,176,86,0.1);
   border-left: 3px solid #dbb056;
@@ -505,7 +578,7 @@ body {
   position: absolute;
   bottom: 0;
   left: 0px;
-  right: 72%;
+  right: 79%;
   height: 52px;
   background: #0f0a05;
   border-top: 1px solid rgba(219,176,86,0.18);
