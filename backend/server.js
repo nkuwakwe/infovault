@@ -1649,6 +1649,9 @@ app.get('/api/dm-conversations/:conversationId/messages', async (req, res) => {
         id,
         content,
         created_at,
+        is_edited,
+        edited_at,
+        reply_to_id,
         user_id,
         user:user_id(id, username, display_name, pfp)
       `)
@@ -1659,13 +1662,42 @@ app.get('/api/dm-conversations/:conversationId/messages', async (req, res) => {
       console.error('Messages fetch error:', messagesError);
       return res.status(500).json({
         success: false,
-        message: 'Failed to fetch messages'
+        message: 'Failed to fetch messages',
+        error: messagesError.message
       });
     }
 
+    // Fetch reply information for messages that have replies
+    const replyIds = messages.filter(msg => msg.reply_to_id).map(msg => msg.reply_to_id);
+    let replyData = {};
+    
+    if (replyIds.length > 0) {
+      const { data: replies, error: replyError } = await supabase
+        .from('dm_messages')
+        .select(`
+          id,
+          content,
+          user:user_id(id, username, display_name, pfp)
+        `)
+        .in('id', replyIds);
+
+      if (!replyError && replies) {
+        replyData = replies.reduce((acc, reply) => {
+          acc[reply.id] = reply;
+          return acc;
+        }, {});
+      }
+    }
+
+    // Merge reply data into messages
+    const messagesWithReplies = messages.map(message => ({
+      ...message,
+      reply_to: message.reply_to_id ? replyData[message.reply_to_id] : null
+    }));
+
     res.json({
       success: true,
-      messages: messages
+      messages: messagesWithReplies
     });
 
   } catch (error) {
@@ -1681,7 +1713,7 @@ app.get('/api/dm-conversations/:conversationId/messages', async (req, res) => {
 app.post('/api/dm-messages', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
-    const { conversation_id, content } = req.body;
+    const { conversation_id, content, reply_to_id } = req.body;
     
     if (!token || !content) {
       return res.status(400).json({
@@ -1770,12 +1802,16 @@ app.post('/api/dm-messages', async (req, res) => {
       .insert({
         conversation_id: finalConversationId,
         user_id: user.id,
-        content: content.trim()
+        content: content.trim(),
+        reply_to_id: reply_to_id || null
       })
       .select(`
         id,
         content,
         created_at,
+        is_edited,
+        edited_at,
+        reply_to_id,
         user_id,
         user:user_id(id, username, display_name, pfp)
       `)
@@ -1796,6 +1832,119 @@ app.post('/api/dm-messages', async (req, res) => {
 
   } catch (error) {
     console.error('DM message send error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Update DM message
+app.put('/api/dm-messages/:messageId', async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { content } = req.body;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token || !messageId || !content) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Get message to verify ownership
+    const { data: messageData, error: messageError } = await supabase
+      .from('dm_messages')
+      .select(`
+        id,
+        content,
+        conversation_id,
+        user_id,
+        created_at
+      `)
+      .eq('id', messageId)
+      .single();
+
+    if (messageError || !messageData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    // Verify user is participant in the conversation
+    const { data: participant, error: participantError } = await supabase
+      .from('dm_participants')
+      .select('user_id')
+      .eq('conversation_id', messageData.conversation_id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (participantError || !participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this conversation'
+      });
+    }
+
+    // Verify user owns the message
+    if (messageData.user_id !== user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Can only edit your own messages'
+      });
+    }
+
+    // Update message
+    const { data, error } = await supabase
+      .from('dm_messages')
+      .update({
+        content: content.trim(),
+        is_edited: true,
+        edited_at: new Date().toISOString()
+      })
+      .eq('id', messageId)
+      .select(`
+        id,
+        content,
+        created_at,
+        updated_at,
+        is_edited,
+        edited_at,
+        conversation_id,
+        user_id,
+        user:user_id(id, username, display_name, pfp)
+      `)
+      .single();
+
+    if (error) {
+      console.error('DM message update error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update message',
+        error: error.message
+      });
+    }
+
+    console.log('DM message updated successfully:', data);
+    
+    res.json({
+      success: true,
+      message: data
+    });
+
+  } catch (error) {
+    console.error('DM message update error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

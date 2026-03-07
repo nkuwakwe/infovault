@@ -19,6 +19,10 @@ const DirectMessages = () => {
   const [dmInput, setDmInput] = useState('');
   const [currentConversation, setCurrentConversation] = useState(null);
   const [showFriendsList, setShowFriendsList] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null); // { id, content, user }
+  const [showReplyMenu, setShowReplyMenu] = useState(null); // message id
+  const [editingMessage, setEditingMessage] = useState(null); // { id, content, originalContent }
+  const [editInput, setEditInput] = useState('');
 
   useEffect(() => {
     fetchUserData();
@@ -292,7 +296,8 @@ const DirectMessages = () => {
           },
           body: JSON.stringify({
             participant_id: selectedFriend.id,
-            content: dmInput.trim()
+            content: dmInput.trim(),
+            reply_to_id: replyingTo?.id || null
           })
         });
         
@@ -301,6 +306,7 @@ const DirectMessages = () => {
           setCurrentConversation(data.conversation);
           setDmMessages(prev => [...prev, data.message]);
           setDmInput('');
+          setReplyingTo(null); // Clear reply state
           
           // Scroll to bottom after sending
           setTimeout(() => {
@@ -322,7 +328,8 @@ const DirectMessages = () => {
           },
           body: JSON.stringify({
             conversation_id: conversationId,
-            content: dmInput.trim()
+            content: dmInput.trim(),
+            reply_to_id: replyingTo?.id || null
           })
         });
         
@@ -330,6 +337,7 @@ const DirectMessages = () => {
         if (data.success) {
           setDmMessages(prev => [...prev, data.message]);
           setDmInput('');
+          setReplyingTo(null); // Clear reply state
           
           // Scroll to bottom after sending
           setTimeout(() => {
@@ -353,6 +361,105 @@ const DirectMessages = () => {
       sendDMMessage();
     }
   };
+
+  const handleReply = (message) => {
+    setReplyingTo({
+      id: message.id,
+      content: message.content,
+      user: message.users
+    });
+    setShowReplyMenu(null);
+    // Focus the input
+    document.querySelector('.dm-input-bar input')?.focus();
+  };
+
+  const cancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  const handleEdit = (message) => {
+    setEditingMessage({
+      id: message.id,
+      content: message.content,
+      originalContent: message.content
+    });
+    setEditInput(message.content);
+    setShowReplyMenu(null);
+    // Focus the input
+    document.querySelector('.dm-input-bar input')?.focus();
+  };
+
+  const cancelEdit = () => {
+    setEditingMessage(null);
+    setEditInput('');
+  };
+
+  const saveEdit = async () => {
+    if (!editingMessage || !editInput.trim()) return;
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:5000/api/dm-messages/${editingMessage.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          content: editInput.trim()
+        })
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        // Update message in local state
+        setDmMessages(prev => prev.map(msg => 
+          msg.id === editingMessage.id 
+            ? { ...data.message, is_edited: true, edited_at: new Date().toISOString() }
+            : msg
+        ));
+        setEditingMessage(null);
+        setEditInput('');
+      } else {
+        console.error('Failed to edit DM message:', data.message);
+      }
+    } catch (error) {
+      console.error('Failed to edit DM message:', error);
+    }
+  };
+
+  const handleContextMenu = (e, messageId) => {
+    e.preventDefault();
+    console.log('DM Context menu triggered for message:', messageId);
+    setShowReplyMenu(messageId);
+  };
+
+  const handleClickOutside = (e) => {
+    if (!e.target.closest('.reply-menu') && !e.target.closest('.dm-message')) {
+      setShowReplyMenu(null);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // Position menu when it appears
+  useEffect(() => {
+    if (showReplyMenu) {
+      const menu = document.querySelector('.reply-menu');
+      if (menu) {
+        // Get the message element
+        const messageElement = document.querySelector(`[data-message-id="${showReplyMenu}"]`);
+        if (messageElement) {
+          const rect = messageElement.getBoundingClientRect();
+          menu.style.left = `${rect.left}px`;
+          menu.style.top = `${rect.bottom + 5}px`;
+        }
+      }
+    }
+  }, [showReplyMenu]);
 
   const showFriendsManagement = () => {
     setSelectedFriend(null);
@@ -659,7 +766,32 @@ const DirectMessages = () => {
                             {new Date(message.created_at).toLocaleDateString()}
                           </div>
                         )}
-                        <div className={`dm-message ${isCurrentUser ? 'you' : 'other'}`}>
+                        <div className={`dm-message ${isCurrentUser ? 'you' : 'other'}`} data-message-id={message.id} onContextMenu={(e) => handleContextMenu(e, message.id)}>
+                          {/* Reply preview */}
+                          {message.reply_to_id && message.reply_to && (
+                            <div className="reply-preview">
+                              <div className="reply-info">
+                                <div className="reply-avatar">
+                                  {message.reply_to.users?.pfp ? (
+                                    <img 
+                                      src={message.reply_to.users.pfp} 
+                                      alt={message.reply_to.users.display_name || message.reply_to.users.username} 
+                                      className="reply-avatar-img"
+                                    />
+                                  ) : (
+                                    getUserInitials(message.reply_to.users)
+                                  )}
+                                </div>
+                                <div className="reply-details">
+                                  <div className="reply-username">
+                                    Replying to {message.reply_to.users?.display_name || message.reply_to.users?.username}
+                                  </div>
+                                  <div className="reply-content">{message.reply_to.content}</div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
                           <div className="dm-msg-avatar">
                             {messageUser?.pfp ? (
                               <img 
@@ -680,8 +812,25 @@ const DirectMessages = () => {
                             <div className="dm-msg-text">{message.content}</div>
                             <div className="dm-msg-timestamp">
                               {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {message.is_edited && (
+                                <span className="edited-indicator">(Edited)</span>
+                              )}
                             </div>
                           </div>
+                          
+                          {/* Reply menu */}
+                          {showReplyMenu === message.id && (
+                            <div className="reply-menu">
+                              <button onClick={() => handleReply(message)} className="reply-btn">
+                                <i className="fas fa-reply"></i> Reply
+                              </button>
+                              {message.user_id === currentUser?.id && (
+                                <button onClick={() => handleEdit(message)} className="edit-btn">
+                                  <i className="fas fa-edit"></i> Edit
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -697,14 +846,47 @@ const DirectMessages = () => {
 
               {/* Message Input */}
               <div className="dm-input-bar">
+                {/* Reply indicator */}
+                {replyingTo && (
+                  <div className="reply-indicator">
+                    <div className="reply-info">
+                      <span className="replying-to">Replying to {replyingTo.user?.display_name || replyingTo.user?.username}</span>
+                      <button className="cancel-reply-btn" onClick={cancelReply}>
+                        <i className="fas fa-times"></i>
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Edit indicator */}
+                {editingMessage && (
+                  <div className="edit-indicator">
+                    <div className="edit-info">
+                      <span className="editing-text">Editing message</span>
+                      <button className="cancel-edit-btn" onClick={cancelEdit}>
+                        <i className="fas fa-times"></i>
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="dm-input-wrapper">
                   <input 
                     type="text" 
                     className="dm-message-input" 
-                    placeholder={`Message @${selectedFriend.display_name || selectedFriend.username}`}
-                    value={dmInput}
-                    onChange={(e) => setDmInput(e.target.value)}
-                    onKeyPress={handleDMKeyPress}
+                    placeholder={editingMessage ? "Edit message..." : `Message @${selectedFriend.display_name || selectedFriend.username}`}
+                    value={editingMessage ? editInput : dmInput}
+                    onChange={(e) => editingMessage ? setEditInput(e.target.value) : setDmInput(e.target.value)}
+                    onKeyPress={editingMessage ? (e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        saveEdit();
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cancelEdit();
+                      }
+                    } : handleDMKeyPress}
                   />
                   <div className="dm-input-icons">
                     <i className="fas fa-plus"></i>
