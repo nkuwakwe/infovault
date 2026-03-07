@@ -782,6 +782,7 @@ app.get('/api/chats/:chatId/messages', async (req, res) => {
         edited_at,
         pinned_position,
         reactions,
+        reply_to_id,
         user_id,
         users!inner(
           id,
@@ -802,9 +803,42 @@ app.get('/api/chats/:chatId/messages', async (req, res) => {
       });
     }
 
+    // Fetch reply information for messages that have replies
+    const replyIds = data.filter(msg => msg.reply_to_id).map(msg => msg.reply_to_id);
+    let replyData = {};
+    
+    if (replyIds.length > 0) {
+      const { data: replies, error: replyError } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          content,
+          users!inner(
+            id,
+            username,
+            display_name,
+            pfp
+          )
+        `)
+        .in('id', replyIds);
+
+      if (!replyError && replies) {
+        replyData = replies.reduce((acc, reply) => {
+          acc[reply.id] = reply;
+          return acc;
+        }, {});
+      }
+    }
+
+    // Merge reply data into messages
+    const messagesWithReplies = data.map(message => ({
+      ...message,
+      reply_to: message.reply_to_id ? replyData[message.reply_to_id] : null
+    }));
+
     res.json({
       success: true,
-      messages: data
+      messages: messagesWithReplies
     });
 
   } catch (error) {
@@ -819,7 +853,7 @@ app.get('/api/chats/:chatId/messages', async (req, res) => {
 // Send message
 app.post('/api/messages', async (req, res) => {
   try {
-    const { chat_id, content } = req.body;
+    const { chat_id, content, reply_to_id } = req.body;
     const token = req.headers.authorization?.replace('Bearer ', '');
     
     if (!token || !chat_id || !content) {
@@ -836,6 +870,35 @@ app.post('/api/messages', async (req, res) => {
         success: false,
         message: 'Invalid authentication token'
       });
+    }
+
+    // If reply_to_id is provided, verify the replied message exists and is in the same chat
+    let replyData = null;
+    if (reply_to_id) {
+      const { data: replyCheck, error: replyError } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          content,
+          chat_id,
+          users!inner(
+            id,
+            username,
+            display_name,
+            pfp
+          )
+        `)
+        .eq('id', reply_to_id)
+        .eq('chat_id', chat_id)
+        .single();
+
+      if (replyError || !replyCheck) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid reply message'
+        });
+      }
+      replyData = replyCheck;
     }
 
     // Check if user is member of the vault that contains this chat
@@ -883,6 +946,7 @@ app.post('/api/messages', async (req, res) => {
         user_id: user.id,
         content: content.trim(),
         type: 'text',
+        reply_to_id: reply_to_id || null,
         created_at: new Date().toISOString()
       })
       .select(`
@@ -894,6 +958,7 @@ app.post('/api/messages', async (req, res) => {
         edited_at,
         pinned_position,
         reactions,
+        reply_to_id,
         user_id,
         users!inner(
           id,
@@ -913,11 +978,34 @@ app.post('/api/messages', async (req, res) => {
       });
     }
 
+    // Fetch reply information if this is a reply
+    let messageWithReply = { ...data, reply_to: null };
+    if (data.reply_to_id) {
+      const { data: replyInfo, error: replyError } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          content,
+          users!inner(
+            id,
+            username,
+            display_name,
+            pfp
+          )
+        `)
+        .eq('id', data.reply_to_id)
+        .single();
+
+      if (!replyError && replyInfo) {
+        messageWithReply.reply_to = replyInfo;
+      }
+    }
+
     console.log('Message sent successfully:', data);
     
     res.json({
       success: true,
-      message: data
+      message: messageWithReply
     });
 
   } catch (error) {

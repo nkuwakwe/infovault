@@ -15,6 +15,8 @@ const ChatInterface = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [profileModal, setProfileModal] = useState({ isOpen: false, user: null });
   const [directMessage, setDirectMessage] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null); // { id, content, user }
+  const [showReplyMenu, setShowReplyMenu] = useState(null); // message id
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -158,7 +160,8 @@ const ChatInterface = () => {
         },
         body: JSON.stringify({
           chat_id: selectedChat.id,
-          content: messageInput.trim()
+          content: messageInput.trim(),
+          reply_to_id: replyingTo?.id || null
         })
       });
       
@@ -167,6 +170,7 @@ const ChatInterface = () => {
         // Add message to local state immediately for better UX
         setMessages(prev => [...prev, data.message]);
         setMessageInput('');
+        setReplyingTo(null); // Clear reply state
       } else {
         console.error('Failed to send message:', data.message);
       }
@@ -232,6 +236,54 @@ const ChatInterface = () => {
       sendMessage();
     }
   };
+
+  const handleReply = (message) => {
+    setReplyingTo({
+      id: message.id,
+      content: message.content,
+      user: message.users
+    });
+    setShowReplyMenu(null);
+    // Focus the input
+    document.querySelector('.input-bar input')?.focus();
+  };
+
+  const cancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  const handleContextMenu = (e, messageId) => {
+    e.preventDefault();
+    console.log('Context menu triggered for message:', messageId);
+    setShowReplyMenu(messageId);
+  };
+
+  const handleClickOutside = (e) => {
+    if (!e.target.closest('.reply-menu') && !e.target.closest('.message')) {
+      setShowReplyMenu(null);
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // Position menu when it appears
+  useEffect(() => {
+    if (showReplyMenu) {
+      const menu = document.querySelector('.reply-menu');
+      if (menu) {
+        // Get the message element
+        const messageElement = document.querySelector(`[data-message-id="${showReplyMenu}"]`);
+        if (messageElement) {
+          const rect = messageElement.getBoundingClientRect();
+          menu.style.left = `${rect.left}px`;
+          menu.style.top = `${rect.bottom + 5}px`;
+        }
+      }
+    }
+  }, [showReplyMenu]);
 
   const switchVault = (vault) => {
     setCurrentVault(vault);
@@ -324,7 +376,32 @@ const ChatInterface = () => {
         <div className="chat-area">
           <div className="chat-messages">
             {messages.map((message) => (
-              <div key={message.id} className="message">
+              <div key={message.id} className="message" data-message-id={message.id} onContextMenu={(e) => handleContextMenu(e, message.id)}>
+                {/* Reply preview */}
+                {message.reply_to_id && message.reply_to && (
+                  <div className="reply-preview">
+                    <div className="reply-info">
+                      <div className="reply-avatar">
+                        {message.reply_to.users?.pfp ? (
+                          <img 
+                            src={message.reply_to.users.pfp} 
+                            alt={message.reply_to.users.display_name || message.reply_to.users.username} 
+                            className="reply-avatar-img"
+                          />
+                        ) : (
+                          getUserInitials(message.reply_to.users)
+                        )}
+                      </div>
+                      <div className="reply-details">
+                        <div className="reply-username">
+                          Replying to {message.reply_to.users?.display_name || message.reply_to.users?.username}
+                        </div>
+                        <div className="reply-content">{message.reply_to.content}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="avatar" onClick={() => openProfileModal(message.users)} style={{ cursor: 'pointer' }}>
                   {message.users?.pfp ? (
                     <img 
@@ -343,6 +420,15 @@ const ChatInterface = () => {
                   </span>
                   <div className="text">{message.content}</div>
                 </div>
+                
+                {/* Reply menu */}
+                {showReplyMenu === message.id && (
+                  <div className="reply-menu">
+                    <button onClick={() => handleReply(message)} className="reply-btn">
+                      <i className="fas fa-reply"></i> Reply
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
             {messages.length === 0 && (
@@ -354,6 +440,18 @@ const ChatInterface = () => {
           </div>
 
           <div className="input-bar">
+            {/* Reply indicator */}
+            {replyingTo && (
+              <div className="reply-indicator">
+                <div className="reply-info">
+                  <span className="replying-to">Replying to {replyingTo.user?.display_name || replyingTo.user?.username}</span>
+                  <button className="cancel-reply-btn" onClick={cancelReply}>
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
+              </div>
+            )}
+            
             <input 
               type="text" 
               placeholder={selectedChat ? `Message #${selectedChat.name}` : "Select a channel..."}
