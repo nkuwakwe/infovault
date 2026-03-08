@@ -925,6 +925,7 @@ app.get('/api/chats/:chatId/messages', async (req, res) => {
         pinned_position,
         reactions,
         reply_to_id,
+        attachments,
         user_id,
         users!inner(
           id,
@@ -995,10 +996,10 @@ app.get('/api/chats/:chatId/messages', async (req, res) => {
 // Send message
 app.post('/api/messages', async (req, res) => {
   try {
-    const { chat_id, content, reply_to_id } = req.body;
+    const { chat_id, content, reply_to_id, attachment } = req.body;
     const token = req.headers.authorization?.replace('Bearer ', '');
     
-    if (!token || !chat_id || !content) {
+    if (!token || !chat_id) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields'
@@ -1086,9 +1087,10 @@ app.post('/api/messages', async (req, res) => {
       .insert({
         chat_id: chat_id,
         user_id: user.id,
-        content: content.trim(),
-        type: 'text',
+        content: content ? content.trim() : null,
+        type: 'text', // Always use 'text' type, attachments stored in JSONB
         reply_to_id: reply_to_id || null,
+        attachments: attachment ? [attachment] : null,
         created_at: new Date().toISOString()
       })
       .select(`
@@ -1101,6 +1103,7 @@ app.post('/api/messages', async (req, res) => {
         pinned_position,
         reactions,
         reply_to_id,
+        attachments,
         user_id,
         users!inner(
           id,
@@ -1945,6 +1948,116 @@ app.put('/api/dm-messages/:messageId', async (req, res) => {
 
   } catch (error) {
     console.error('DM message update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Upload chat attachment
+app.post('/api/upload/chat', upload.single('file'), async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { chat_id } = req.body;
+    const file = req.file;
+    
+    if (!token || !file || !chat_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if user is member of the vault that contains this chat
+    const { data: chatData, error: chatError } = await supabase
+      .from('chats')
+      .select(`
+        id,
+        category_id,
+        categories!inner(
+          id,
+          vault_id
+        )
+      `)
+      .eq('id', chat_id)
+      .single();
+
+    if (chatError || !chatData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    const vaultId = chatData.categories.vault_id;
+
+    const { data: memberCheck, error: memberError } = await supabase
+      .from('vault_members')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('vault_id', vaultId)
+      .single();
+
+    if (memberError || !memberCheck) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this chat'
+      });
+    }
+
+    // Upload file to storage
+    const fileName = `${Date.now()}-${file.originalname}`;
+    const filePath = `chats/${chat_id}/${fileName}`;
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('assets')
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('File upload error:', uploadError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload file',
+        error: uploadError.message
+      });
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('assets')
+      .getPublicUrl(filePath);
+
+    // Create attachment object
+    const attachment = {
+      type: file.mimetype.startsWith('image/') ? 'image' : 'file',
+      url: publicUrl,
+      name: file.originalname,
+      size: file.size,
+      mime: file.mimetype
+    };
+
+    console.log('File uploaded successfully:', attachment);
+    
+    res.json({
+      success: true,
+      attachment: attachment
+    });
+
+  } catch (error) {
+    console.error('Chat upload error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

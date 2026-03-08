@@ -19,6 +19,9 @@ const ChatInterface = () => {
   const [showReplyMenu, setShowReplyMenu] = useState(null); // message id
   const [editingMessage, setEditingMessage] = useState(null); // { id, content, originalContent }
   const [editInput, setEditInput] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
+  const [showFileUpload, setShowFileUpload] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -235,7 +238,19 @@ const ChatInterface = () => {
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      if (showFileUpload && selectedFile) {
+        // If file is selected, send based on input content
+        if (messageInput.trim()) {
+          // Send message with attachment
+          sendMessageWithFile();
+        } else {
+          // Send file alone
+          sendFileAlone();
+        }
+      } else {
+        // Regular message send
+        sendMessage();
+      }
     }
   };
 
@@ -308,6 +323,154 @@ const ChatInterface = () => {
       }
     } catch (error) {
       console.error('Failed to edit message:', error);
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setFilePreview(URL.createObjectURL(file));
+      setShowFileUpload(true);
+    }
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+    setShowFileUpload(false);
+  };
+
+  const sendMessageWithAttachment = async (attachment) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('http://localhost:5000/api/messages', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          chat_id: selectedChat.id,
+          content: messageInput.trim(),
+          reply_to_id: replyingTo?.id || null,
+          attachment: attachment
+        })
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        setMessages(prev => [...prev, data.message]);
+        setMessageInput('');
+        setReplyingTo(null); // Clear reply state
+      } else {
+        console.error('Failed to send message:', data.message);
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  };
+
+  const sendMessageWithFile = async () => {
+    if (!selectedFile || !selectedChat) return;
+    
+    try {
+      // First upload the file
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('chat_id', selectedChat.id);
+      
+      const token = localStorage.getItem('access_token');
+      const uploadResponse = await fetch('http://localhost:5000/api/upload/chat', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      const uploadData = await uploadResponse.json();
+      if (uploadResponse.ok) {
+        // Send message with attachment
+        const messageResponse = await fetch('http://localhost:5000/api/messages', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            chat_id: selectedChat.id,
+            content: messageInput.trim(),
+            reply_to_id: replyingTo?.id || null,
+            attachment: uploadData.attachment
+          })
+        });
+        
+        const messageData = await messageResponse.json();
+        if (messageResponse.ok) {
+          setMessages(prev => [...prev, messageData.message]);
+          setMessageInput('');
+          setReplyingTo(null);
+          removeFile();
+        } else {
+          console.error('Failed to send message with file:', messageData.message);
+        }
+      } else {
+        console.error('Failed to upload file:', uploadData.message);
+      }
+    } catch (error) {
+      console.error('Failed to send message with file:', error);
+    }
+  };
+
+  const sendFileAlone = async () => {
+    if (!selectedFile || !selectedChat) return;
+    
+    try {
+      // First upload the file
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('chat_id', selectedChat.id);
+      
+      const token = localStorage.getItem('access_token');
+      const uploadResponse = await fetch('http://localhost:5000/api/upload/chat', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      const uploadData = await uploadResponse.json();
+      if (uploadResponse.ok) {
+        // Send message with null content and attachment
+        const messageResponse = await fetch('http://localhost:5000/api/messages', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            chat_id: selectedChat.id,
+            content: null,
+            reply_to_id: replyingTo?.id || null,
+            attachment: uploadData.attachment
+          })
+        });
+        
+        const messageData = await messageResponse.json();
+        if (messageResponse.ok) {
+          setMessages(prev => [...prev, messageData.message]);
+          setReplyingTo(null);
+          removeFile();
+        } else {
+          console.error('Failed to send file alone:', messageData.message);
+        }
+      } else {
+        console.error('Failed to upload file:', uploadData.message);
+      }
+    } catch (error) {
+      console.error('Failed to send file alone:', error);
     }
   };
 
@@ -474,7 +637,33 @@ const ChatInterface = () => {
                   {message.is_edited && (
                     <span className="edited-indicator">(Edited)</span>
                   )}
-                  <div className="text">{message.content}</div>
+                  <div className="text">
+                    {message.content && <div>{message.content}</div>}
+                    {message.attachments && message.attachments.length > 0 && (
+                      <div className="message-attachments">
+                        {message.attachments.map((attachment, index) => (
+                          <div key={index} className="attachment">
+                            {attachment.type === 'image' ? (
+                              <img 
+                                src={attachment.url} 
+                                alt={attachment.name} 
+                                className="attachment-image"
+                                onClick={() => window.open(attachment.url, '_blank')}
+                              />
+                            ) : (
+                              <div className="file-attachment" onClick={() => window.open(attachment.url, '_blank')}>
+                                <i className="fas fa-file"></i>
+                                <span className="attachment-name">{attachment.name}</span>
+                                <span className="attachment-size">
+                                  {(attachment.size / 1024).toFixed(1)}KB
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Reply menu */}
@@ -525,6 +714,28 @@ const ChatInterface = () => {
               </div>
             )}
             
+            {/* File upload preview */}
+            {showFileUpload && (
+              <div className="file-upload-preview">
+                <div className="file-preview-content">
+                  {selectedFile?.type.startsWith('image/') ? (
+                    <img src={filePreview} alt="Preview" className="preview-image" />
+                  ) : (
+                    <div className="preview-file">
+                      <i className="fas fa-file"></i>
+                      <span className="file-name">{selectedFile.name}</span>
+                    </div>
+                  )}
+                  <button className="remove-file-btn" onClick={removeFile}>
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
+                <div className="file-upload-hint">
+                  Press Enter to send {messageInput.trim() ? 'with message' : 'file only'}
+                </div>
+              </div>
+            )}
+            
             <input 
               type="text" 
               placeholder={editingMessage ? "Edit message..." : (selectedChat ? `Message #${selectedChat.name}` : "Select a channel...")}
@@ -543,8 +754,16 @@ const ChatInterface = () => {
               } : handleKeyPress}
             />
             <div className="input-icons">
-              <i className="fas fa-plus"></i>
-              <i className="fas fa-gift"></i>
+              <input 
+                type="file" 
+                id="file-upload" 
+                style={{ display: 'none' }}
+                onChange={handleFileSelect}
+                accept="image/*,.pdf,.doc,.docx,.txt"
+              />
+              <label htmlFor="file-upload" className="file-upload-label">
+                <i className="fas fa-plus"></i>
+              </label>
               <i className="fas fa-image"></i>
             </div>
           </div>
