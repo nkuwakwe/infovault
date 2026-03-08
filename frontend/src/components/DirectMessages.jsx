@@ -23,6 +23,9 @@ const DirectMessages = () => {
   const [showReplyMenu, setShowReplyMenu] = useState(null); // message id
   const [editingMessage, setEditingMessage] = useState(null); // { id, content, originalContent }
   const [editInput, setEditInput] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
+  const [showFileUpload, setShowFileUpload] = useState(false);
 
   useEffect(() => {
     fetchUserData();
@@ -358,7 +361,19 @@ const DirectMessages = () => {
   const handleDMKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendDMMessage();
+      if (showFileUpload && selectedFile) {
+        // If file is selected, send based on input content
+        if (dmInput.trim()) {
+          // Send message with attachment
+          sendDMWithFile();
+        } else {
+          // Send file alone
+          sendDMFileAlone();
+        }
+      } else {
+        // Regular DM send
+        sendDMMessage();
+      }
     }
   };
 
@@ -425,6 +440,124 @@ const DirectMessages = () => {
       }
     } catch (error) {
       console.error('Failed to edit DM message:', error);
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setFilePreview(URL.createObjectURL(file));
+      setShowFileUpload(true);
+    }
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+    setShowFileUpload(false);
+  };
+
+  const sendDMWithFile = async () => {
+    if (!selectedFile || !currentConversation) return;
+    
+    try {
+      // First upload the file
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('conversation_id', currentConversation.id);
+      
+      const token = localStorage.getItem('access_token');
+      const uploadResponse = await fetch('http://localhost:5000/api/upload/dm', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      const uploadData = await uploadResponse.json();
+      if (uploadResponse.ok) {
+        // Send DM with attachment
+        const messageResponse = await fetch('http://localhost:5000/api/dm-messages', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            conversation_id: currentConversation.id,
+            content: dmInput.trim(),
+            reply_to_id: replyingTo?.id || null,
+            attachment: uploadData.attachment
+          })
+        });
+        
+        const messageData = await messageResponse.json();
+        if (messageResponse.ok) {
+          setDmMessages(prev => [...prev, messageData.message]);
+          setDmInput('');
+          setReplyingTo(null);
+          removeFile();
+        } else {
+          console.error('Failed to send DM with file:', messageData.message);
+        }
+      } else {
+        console.error('Failed to upload DM file:', uploadData.message);
+      }
+    } catch (error) {
+      console.error('Failed to send DM with file:', error);
+    }
+  };
+
+  const sendDMFileAlone = async () => {
+    if (!selectedFile || !currentConversation) return;
+    
+    try {
+      // First upload the file
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('conversation_id', currentConversation.id);
+      
+      const token = localStorage.getItem('access_token');
+      const uploadResponse = await fetch('http://localhost:5000/api/upload/dm', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      const uploadData = await uploadResponse.json();
+      if (uploadResponse.ok) {
+        // Send DM with null content and attachment
+        const messageResponse = await fetch('http://localhost:5000/api/dm-messages', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            conversation_id: currentConversation.id,
+            content: null,
+            reply_to_id: replyingTo?.id || null,
+            attachment: uploadData.attachment
+          })
+        });
+        
+        const messageData = await messageResponse.json();
+        if (messageResponse.ok) {
+          setDmMessages(prev => [...prev, messageData.message]);
+          setReplyingTo(null);
+          removeFile();
+        } else {
+          console.error('Failed to send DM file alone:', messageData.message);
+        }
+      } else {
+        console.error('Failed to upload DM file:', uploadData.message);
+      }
+    } catch (error) {
+      console.error('Failed to send DM file alone:', error);
     }
   };
 
@@ -809,7 +942,33 @@ const DirectMessages = () => {
                                 {messageUser.display_name || messageUser.username}
                               </div>
                             )}
-                            <div className="dm-msg-text">{message.content}</div>
+                            <div className="dm-msg-text">
+                            {message.content && <div>{message.content}</div>}
+                            {message.attachments && message.attachments.length > 0 && (
+                              <div className="message-attachments">
+                                {message.attachments.map((attachment, index) => (
+                                  <div key={index} className="attachment">
+                                    {attachment.type === 'image' ? (
+                                      <img 
+                                        src={attachment.url} 
+                                        alt={attachment.name} 
+                                        className="attachment-image"
+                                        onClick={() => window.open(attachment.url, '_blank')}
+                                      />
+                                    ) : (
+                                      <div className="file-attachment" onClick={() => window.open(attachment.url, '_blank')}>
+                                        <i className="fas fa-file"></i>
+                                        <span className="attachment-name">{attachment.name}</span>
+                                        <span className="attachment-size">
+                                          {(attachment.size / 1024).toFixed(1)}KB
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                             <div className="dm-msg-timestamp">
                               {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               {message.is_edited && (
@@ -870,10 +1029,29 @@ const DirectMessages = () => {
                   </div>
                 )}
                 
+                {/* File upload preview */}
+                {showFileUpload && (
+                  <div className="file-upload-preview">
+                    <div className="file-preview-content">
+                      {selectedFile?.type.startsWith('image/') ? (
+                        <img src={filePreview} alt="Preview" className="preview-image" />
+                      ) : (
+                        <div className="preview-file">
+                          <i className="fas fa-file"></i>
+                          <span className="file-name">{selectedFile.name}</span>
+                        </div>
+                      )}
+                      <button className="remove-file-btn" onClick={removeFile}>
+                        <i className="fas fa-times"></i>
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="dm-input-wrapper">
                   <input 
                     type="text" 
-                    className="dm-message-input" 
+                    className="dm-message-input"
                     placeholder={editingMessage ? "Edit message..." : `Message @${selectedFriend.display_name || selectedFriend.username}`}
                     value={editingMessage ? editInput : dmInput}
                     onChange={(e) => editingMessage ? setEditInput(e.target.value) : setDmInput(e.target.value)}
@@ -889,7 +1067,16 @@ const DirectMessages = () => {
                     } : handleDMKeyPress}
                   />
                   <div className="dm-input-icons">
-                    <i className="fas fa-plus"></i>
+                    <input 
+                      type="file" 
+                      id="dm-file-upload" 
+                      style={{ display: 'none' }}
+                      onChange={handleFileSelect}
+                      accept="image/*,.pdf,.doc,.docx,.txt"
+                    />
+                    <label htmlFor="dm-file-upload" className="file-upload-label">
+                      <i className="fas fa-plus"></i>
+                    </label>
                     <i className="fas fa-gift"></i>
                     <i className="fas fa-smile"></i>
                   </div>

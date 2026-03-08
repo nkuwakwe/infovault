@@ -1655,6 +1655,7 @@ app.get('/api/dm-conversations/:conversationId/messages', async (req, res) => {
         is_edited,
         edited_at,
         reply_to_id,
+        attachments,
         user_id,
         user:user_id(id, username, display_name, pfp)
       `)
@@ -1716,12 +1717,12 @@ app.get('/api/dm-conversations/:conversationId/messages', async (req, res) => {
 app.post('/api/dm-messages', async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
-    const { conversation_id, content, reply_to_id } = req.body;
+    const { conversation_id, content, reply_to_id, attachment } = req.body;
     
-    if (!token || !content) {
+    if (!token || !conversation_id) {
       return res.status(400).json({
         success: false,
-        message: 'Authentication and content required'
+        message: 'Missing required fields'
       });
     }
 
@@ -1734,103 +1735,59 @@ app.post('/api/dm-messages', async (req, res) => {
       });
     }
 
-    let finalConversationId = conversation_id;
+    // Check if user is participant in the conversation
+    const { data: participant, error: participantError } = await supabase
+      .from('dm_participants')
+      .select('user_id')
+      .eq('conversation_id', conversation_id)
+      .eq('user_id', user.id)
+      .single();
 
-    // If no conversation_id provided, create new conversation
-    if (!conversation_id) {
-      // Extract participant_id from request body for new conversation
-      const { participant_id } = req.body;
-      
-      if (!participant_id) {
-        return res.status(400).json({
-          success: false,
-          message: 'Conversation ID or participant ID required'
-        });
-      }
-
-      // Create new conversation
-      const { data: conversation, error: conversationError } = await supabase
-        .from('dm_conversations')
-        .insert({})
-        .select()
-        .single();
-
-      if (conversationError) {
-        console.error('Conversation creation error:', conversationError);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to create conversation'
-        });
-      }
-
-      // Add participants
-      const { error: participantsError } = await supabase
-        .from('dm_participants')
-        .insert([
-          { conversation_id: conversation.id, user_id: user.id },
-          { conversation_id: conversation.id, user_id: participant_id }
-        ]);
-
-      if (participantsError) {
-        console.error('Participants addition error:', participantsError);
-        return res.status(500).json({
-          success: false,
-          message: 'Failed to add participants'
-        });
-      }
-
-      finalConversationId = conversation.id;
-    } else {
-      // Verify user is participant in existing conversation
-      const { data: participant, error: participantError } = await supabase
-        .from('dm_participants')
-        .select('user_id')
-        .eq('conversation_id', conversation_id)
-        .eq('user_id', user.id)
-        .single();
-
-      if (participantError || !participant) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied to this conversation'
-        });
-      }
-
-      finalConversationId = conversation_id;
+    if (participantError || !participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this conversation'
+      });
     }
 
     // Create message
-    const { data: message, error: messageError } = await supabase
+    const { data, error } = await supabase
       .from('dm_messages')
       .insert({
-        conversation_id: finalConversationId,
+        conversation_id: conversation_id,
         user_id: user.id,
-        content: content.trim(),
-        reply_to_id: reply_to_id || null
+        content: content ? content.trim() : null,
+        type: 'text', // Always use 'text' type, attachments stored in JSONB
+        reply_to_id: reply_to_id || null,
+        attachments: attachment ? [attachment] : null,
+        created_at: new Date().toISOString()
       })
       .select(`
         id,
         content,
         created_at,
+        updated_at,
         is_edited,
         edited_at,
         reply_to_id,
+        attachments,
         user_id,
         user:user_id(id, username, display_name, pfp)
       `)
       .single();
 
-    if (messageError) {
-      console.error('Message creation error:', messageError);
+    if (error) {
+      console.error('DM message creation error:', error);
       return res.status(500).json({
         success: false,
-        message: 'Failed to send message'
+        message: 'Failed to send message',
+        error: error.message
       });
     }
 
     res.json({
       success: true,
-      message: message
+      message: data
     });
 
   } catch (error) {
@@ -2017,7 +1974,7 @@ app.post('/api/upload/chat', upload.single('file'), async (req, res) => {
 
     // Upload file to storage
     const fileName = `${Date.now()}-${file.originalname}`;
-    const filePath = `chats/${chat_id}/${fileName}`;
+    const filePath = `attachments/${fileName}`;
     
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('assets')
@@ -2058,6 +2015,94 @@ app.post('/api/upload/chat', upload.single('file'), async (req, res) => {
 
   } catch (error) {
     console.error('Chat upload error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Upload DM attachment
+app.post('/api/upload/dm', upload.single('file'), async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { conversation_id } = req.body;
+    const file = req.file;
+    
+    if (!token || !file || !conversation_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if user is participant in the conversation
+    const { data: participant, error: participantError } = await supabase
+      .from('dm_participants')
+      .select('user_id')
+      .eq('conversation_id', conversation_id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (participantError || !participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this conversation'
+      });
+    }
+
+    // Upload file to storage
+    const fileName = `${Date.now()}-${file.originalname}`;
+    const filePath = `dm_attachments/${fileName}`;
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('assets')
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('DM file upload error:', uploadError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload file',
+        error: uploadError.message
+      });
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('assets')
+      .getPublicUrl(filePath);
+
+    // Create attachment object
+    const attachment = {
+      type: file.mimetype.startsWith('image/') ? 'image' : 'file',
+      url: publicUrl,
+      name: file.originalname,
+      size: file.size,
+      mime: file.mimetype
+    };
+
+    console.log('DM file uploaded successfully:', attachment);
+    
+    res.json({
+      success: true,
+      attachment: attachment
+    });
+
+  } catch (error) {
+    console.error('DM upload error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

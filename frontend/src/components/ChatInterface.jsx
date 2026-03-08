@@ -730,9 +730,7 @@ const ChatInterface = () => {
                     <i className="fas fa-times"></i>
                   </button>
                 </div>
-                <div className="file-upload-hint">
-                  Press Enter to send {messageInput.trim() ? 'with message' : 'file only'}
-                </div>
+            
               </div>
             )}
             
