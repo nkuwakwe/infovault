@@ -1915,6 +1915,7 @@ app.get('/api/dm-conversations/:conversationId/messages', async (req, res) => {
         edited_at,
         reply_to_id,
         attachments,
+        reactions,
         user_id,
         user:user_id(id, username, display_name, pfp)
       `)
@@ -2164,6 +2165,229 @@ app.put('/api/dm-messages/:messageId', async (req, res) => {
 
   } catch (error) {
     console.error('DM message update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Add reaction to DM message
+app.post('/api/dm-messages/:messageId/reactions', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    
+    if (!token || !emoji) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Get DM message and check conversation access
+    const { data: message, error: messageError } = await supabase
+      .from('dm_messages')
+      .select(`
+        conversation_id,
+        reactions
+      `)
+      .eq('id', messageId)
+      .single();
+
+    if (messageError || !message) {
+      console.error('DM message not found:', messageError);
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    console.log('DM message found:', { messageId, conversationId: message.conversation_id, userId: user.id });
+
+    // Check if user is participant in the conversation
+    const { data: participant, error: participantError } = await supabase
+      .from('dm_participants')
+      .select('user_id')
+      .eq('conversation_id', message.conversation_id)
+      .eq('user_id', user.id)
+      .single();
+
+    // Debug: Check all participants in this conversation
+    const { data: allParticipants, error: allParticipantsError } = await supabase
+      .from('dm_participants')
+      .select('user_id')
+      .eq('conversation_id', message.conversation_id);
+
+    console.log('All participants in conversation:', { allParticipants, allParticipantsError });
+    console.log('Participant check:', { participant, participantError });
+
+    if (participantError || !participant) {
+      console.error('Access denied - user not participant:', { participantError, conversationId: message.conversation_id, userId: user.id });
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this message'
+      });
+    }
+
+    // Update reactions
+    let reactions = message.reactions || {};
+    if (!reactions[emoji]) {
+      reactions[emoji] = [];
+    }
+    
+    // Add user to reaction if not already present
+    if (!reactions[emoji].includes(user.id)) {
+      reactions[emoji].push(user.id);
+    }
+
+    // Update message with new reactions
+    const { data: updatedMessage, error: updateError } = await supabase
+      .from('dm_messages')
+      .update({ reactions })
+      .eq('id', messageId)
+      .select('reactions')
+      .single();
+
+    if (updateError) {
+      console.error('DM reaction update error:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update reaction'
+      });
+    }
+
+    console.log('DM reaction added successfully:', { messageId, emoji, userId: user.id });
+    
+    res.json({
+      success: true,
+      reactions: updatedMessage.reactions
+    });
+
+  } catch (error) {
+    console.error('Add DM reaction error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Remove reaction from DM message
+app.delete('/api/dm-messages/:messageId/reactions', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    
+    if (!token || !emoji) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Get DM message and check conversation access
+    const { data: message, error: messageError } = await supabase
+      .from('dm_messages')
+      .select(`
+        conversation_id,
+        reactions
+      `)
+      .eq('id', messageId)
+      .single();
+
+    if (messageError || !message) {
+      console.error('DM message not found:', messageError);
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    console.log('DM message found:', { messageId, conversationId: message.conversation_id, userId: user.id });
+
+    // Check if user is participant in the conversation
+    const { data: participant, error: participantError } = await supabase
+      .from('dm_participants')
+      .select('user_id')
+      .eq('conversation_id', message.conversation_id)
+      .eq('user_id', user.id)
+      .single();
+
+    // Debug: Check all participants in this conversation
+    const { data: allParticipants, error: allParticipantsError } = await supabase
+      .from('dm_participants')
+      .select('user_id')
+      .eq('conversation_id', message.conversation_id);
+
+    console.log('All participants in conversation:', { allParticipants, allParticipantsError });
+    console.log('Participant check:', { participant, participantError });
+
+    if (participantError || !participant) {
+      console.error('Access denied - user not participant:', { participantError, conversationId: message.conversation_id, userId: user.id });
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this message'
+      });
+    }
+
+    // Update reactions
+    let reactions = message.reactions || {};
+    if (reactions[emoji]) {
+      // Remove user from reaction
+      reactions[emoji] = reactions[emoji].filter(id => id !== user.id);
+      
+      // Remove emoji if no users left
+      if (reactions[emoji].length === 0) {
+        delete reactions[emoji];
+      }
+    }
+
+    // Update message with new reactions
+    const { data: updatedMessage, error: updateError } = await supabase
+      .from('dm_messages')
+      .update({ reactions })
+      .eq('id', messageId)
+      .select('reactions')
+      .single();
+
+    if (updateError) {
+      console.error('DM reaction update error:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update reaction'
+      });
+    }
+
+    console.log('DM reaction removed successfully:', { messageId, emoji, userId: user.id });
+    
+    res.json({
+      success: true,
+      reactions: updatedMessage.reactions
+    });
+
+  } catch (error) {
+    console.error('Remove DM reaction error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'
