@@ -6,7 +6,7 @@ CREATE TABLE public.categories (
   vault_id uuid NOT NULL,
   name text NOT NULL,
   icon text,
-  position integer NOT NULL DEFAULT 0 UNIQUE,
+  position integer NOT NULL DEFAULT 0,
   is_collapsed_by_default boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),

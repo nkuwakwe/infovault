@@ -427,6 +427,156 @@ app.post('/api/vaults/join', async (req, res) => {
   }
 });
 
+// Get public vaults (for joining)
+app.get('/api/vaults/public', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Fetch public vaults with member counts
+    const { data, error } = await supabase
+      .from('vaults')
+      .select(`
+        id,
+        name,
+        description,
+        icon,
+        created_at,
+        vault_members(count)
+      `)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch public vaults',
+        error: error.message
+      });
+    }
+
+    // Format vaults with member count
+    const vaults = data.map(vault => ({
+      ...vault,
+      member_count: vault.vault_members?.[0]?.count || 0
+    }));
+
+    res.json({
+      success: true,
+      vaults: vaults
+    });
+
+  } catch (error) {
+    console.error('Server error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Join vault
+app.post('/api/vaults/:vaultId/join', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { vaultId } = req.params;
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if vault exists
+    const { data: vault, error: vaultError } = await supabase
+      .from('vaults')
+      .select('id, name')
+      .eq('id', vaultId)
+      .single();
+
+    if (vaultError || !vault) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vault not found'
+      });
+    }
+
+    // Check if user is already a member
+    const { data: existingMember, error: memberError } = await supabase
+      .from('vault_members')
+      .select('user_id')
+      .eq('vault_id', vaultId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingMember) {
+      return res.status(400).json({
+        success: false,
+        message: 'Already a member of this vault'
+      });
+    }
+
+    // Add user to vault
+    const { data: newMember, error: joinError } = await supabase
+      .from('vault_members')
+      .insert({
+        vault_id: vaultId,
+        user_id: user.id,
+        joined_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (joinError) {
+      console.error('Join vault error:', joinError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to join vault',
+        error: joinError.message
+      });
+    }
+
+    console.log('User joined vault:', { userId: user.id, vaultId, vaultName: vault.name });
+    
+    res.json({
+      success: true,
+      message: 'Successfully joined vault',
+      member: newMember
+    });
+
+  } catch (error) {
+    console.error('Server error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Get user's vaults
 app.get('/api/vaults/user', async (req, res) => {
   try {

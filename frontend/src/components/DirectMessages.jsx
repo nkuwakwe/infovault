@@ -28,6 +28,9 @@ const DirectMessages = () => {
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [showReactionMenu, setShowReactionMenu] = useState(null); // message id
   const [showEmojiPicker, setShowEmojiPicker] = useState(null); // message id
+  const [showVaultBrowser, setShowVaultBrowser] = useState(false);
+  const [availableVaults, setAvailableVaults] = useState([]);
+  const [userVaults, setUserVaults] = useState([]);
 
   useEffect(() => {
     fetchUserData();
@@ -44,6 +47,69 @@ const DirectMessages = () => {
       fetchSentRequests();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    fetchUserVaults();
+  }, []);
+
+  const fetchAvailableVaults = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('http://localhost:5000/api/vaults/public', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        setAvailableVaults(data.vaults || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch available vaults:', error);
+    }
+  };
+
+  const fetchUserVaults = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('http://localhost:5000/api/vaults/user', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        setUserVaults(data.vaults || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user vaults:', error);
+    }
+  };
+
+  const joinVault = async (vaultId) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:5000/api/vaults/${vaultId}/join`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        fetchUserVaults(); // Refresh user vaults
+        setShowVaultBrowser(false);
+      } else {
+        console.error('Failed to join vault:', data.message);
+      }
+    } catch (error) {
+      console.error('Failed to join vault:', error);
+    }
+  };
 
   const fetchUserData = async () => {
     try {
@@ -691,13 +757,41 @@ const DirectMessages = () => {
           <div className="guild-icon active" onClick={() => navigate('/chat')}>
             <img src="/img/dm_icon.png" alt="Direct Messages" style={{ width: '24px', height: '24px', objectFit: 'cover' }} />
           </div>
-          <div className="guild-icon" onClick={() => navigate('/chat')}>
-            <i className="fas fa-shopping-cart"></i>
-          </div>
-          <div className="guild-icon" onClick={() => navigate('/chat')}>
-            <i className="fas fa-cut"></i>
-          </div>
-          <div className="guild-icon" onClick={() => navigate('/chat')}>
+          {userVaults.map((vault) => (
+            <div 
+              key={vault.id} 
+              className="guild-icon" 
+              onClick={() => navigate(`/chat?vault=${vault.id}`)}
+              title={vault.name}
+            >
+              {vault.icon ? (
+                <img 
+                  src={vault.icon} 
+                  alt={vault.name} 
+                  style={{ width: '24px', height: '24px', objectFit: 'cover', borderRadius: '50%' }}
+                />
+              ) : (
+                <div style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  background: '#dbb056',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#000',
+                  fontWeight: 'bold',
+                  fontSize: '12px'
+                }}>
+                  {vault.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+          ))}
+          <div className="guild-icon" onClick={() => {
+            fetchAvailableVaults();
+            setShowVaultBrowser(true);
+          }}>
             <i className="fas fa-plus"></i>
           </div>
         </div>
@@ -1404,6 +1498,74 @@ const DirectMessages = () => {
               >
                 ← Back to Friends
               </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Vault Browser Modal */}
+      {showVaultBrowser && (
+        <>
+          <div className="modal-backdrop active" onClick={() => setShowVaultBrowser(false)}></div>
+          <div className="vault-browser-modal">
+            <div className="vault-browser-container">
+              <div className="vault-browser-header">
+                <h2>Join a Vault</h2>
+                <button className="close-btn" onClick={() => setShowVaultBrowser(false)}>
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
+              
+              <div className="vault-list">
+                {availableVaults.length > 0 ? (
+                  availableVaults.map((vault) => (
+                    <div key={vault.id} className="vault-item">
+                      <div className="vault-info">
+                        <div className="vault-icon">
+                          {vault.icon ? (
+                            <img 
+                              src={vault.icon} 
+                              alt={vault.name} 
+                              style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '8px' }}
+                            />
+                          ) : (
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '8px',
+                              background: '#dbb056',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#000',
+                              fontWeight: 'bold',
+                              fontSize: '16px'
+                            }}>
+                              {vault.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="vault-details">
+                          <div className="vault-name">{vault.name}</div>
+                          <div className="vault-description">{vault.description || 'No description'}</div>
+                          <div className="vault-members">{vault.member_count || 0} members</div>
+                        </div>
+                      </div>
+                      <button 
+                        className="join-vault-btn"
+                        onClick={() => joinVault(vault.id)}
+                      >
+                        Join
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="no-vaults">
+                    <i className="fas fa-lock"></i>
+                    <p>No public vaults available</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </>
