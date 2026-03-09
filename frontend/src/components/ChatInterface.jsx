@@ -24,6 +24,8 @@ const ChatInterface = () => {
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [showReactionMenu, setShowReactionMenu] = useState(null); // message id
   const [showEmojiPicker, setShowEmojiPicker] = useState(null); // message id
+  const [showVaultBrowser, setShowVaultBrowser] = useState(false);
+  const [availableVaults, setAvailableVaults] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -164,6 +166,47 @@ const ChatInterface = () => {
       }
     } catch (error) {
       console.error('Failed to fetch messages:', error);
+    }
+  };
+
+  const fetchAvailableVaults = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('http://localhost:5000/api/vaults/public', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        setAvailableVaults(data.vaults || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch available vaults:', error);
+    }
+  };
+
+  const joinVault = async (vaultId) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:5000/api/vaults/${vaultId}/join`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        fetchUserVaults(); // Refresh user vaults
+        setShowVaultBrowser(false);
+      } else {
+        console.error('Failed to join vault:', data.message);
+      }
+    } catch (error) {
+      console.error('Failed to join vault:', error);
     }
   };
 
@@ -646,7 +689,10 @@ const ChatInterface = () => {
             </div>
           ))}
           
-          <div className="server-icon add-server">+</div>
+          <div className="server-icon add-server" onClick={() => {
+            fetchAvailableVaults();
+            setShowVaultBrowser(true);
+          }}>+</div>
         </div>
 
         {/* Channels Sidebar */}
@@ -1058,6 +1104,74 @@ const ChatInterface = () => {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Vault Browser Modal */}
+      {showVaultBrowser && (
+        <>
+          <div className="modal-backdrop active" onClick={() => setShowVaultBrowser(false)}></div>
+          <div className="vault-browser-modal">
+            <div className="vault-browser-container">
+              <div className="vault-browser-header">
+                <h2>Join a Vault</h2>
+                <button className="close-btn" onClick={() => setShowVaultBrowser(false)}>
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
+              
+              <div className="vault-list">
+                {availableVaults.length > 0 ? (
+                  availableVaults.map((vault) => (
+                    <div key={vault.id} className="vault-item">
+                      <div className="vault-info">
+                        <div className="vault-icon">
+                          {vault.icon ? (
+                            <img 
+                              src={vault.icon} 
+                              alt={vault.name} 
+                              style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '8px' }}
+                            />
+                          ) : (
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '8px',
+                              background: '#dbb056',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#000',
+                              fontWeight: 'bold',
+                              fontSize: '16px'
+                            }}>
+                              {vault.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="vault-details">
+                          <div className="vault-name">{vault.name}</div>
+                          <div className="vault-description">{vault.description || 'No description'}</div>
+                          <div className="vault-members">{vault.member_count || 0} members</div>
+                        </div>
+                      </div>
+                      <button 
+                        className="join-vault-btn"
+                        onClick={() => joinVault(vault.id)}
+                      >
+                        Join
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="no-vaults">
+                    <i className="fas fa-lock"></i>
+                    <p>No public vaults available</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
