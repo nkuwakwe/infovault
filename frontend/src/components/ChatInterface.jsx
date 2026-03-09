@@ -22,6 +22,8 @@ const ChatInterface = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [showFileUpload, setShowFileUpload] = useState(false);
+  const [showReactionMenu, setShowReactionMenu] = useState(null); // message id
+  const [showEmojiPicker, setShowEmojiPicker] = useState(null); // message id
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,6 +43,19 @@ const ChatInterface = () => {
       fetchMessages();
     }
   }, [selectedChat]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.message') && !e.target.closest('.reply-menu') && !e.target.closest('.emoji-picker')) {
+        setShowReplyMenu(null);
+        setShowReactionMenu(null);
+        setShowEmojiPicker(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const fetchUserData = async () => {
     try {
@@ -273,6 +288,8 @@ const ChatInterface = () => {
     e.preventDefault();
     console.log('Context menu triggered for message:', messageId);
     setShowReplyMenu(messageId);
+    setShowReactionMenu(null);
+    setShowEmojiPicker(null);
   };
 
   const handleEdit = (message) => {
@@ -283,6 +300,7 @@ const ChatInterface = () => {
     });
     setEditInput(message.content);
     setShowReplyMenu(null);
+    setShowEmojiPicker(null);
     // Focus the input
     document.querySelector('.input-bar input')?.focus();
   };
@@ -290,6 +308,80 @@ const ChatInterface = () => {
   const cancelEdit = () => {
     setEditingMessage(null);
     setEditInput('');
+  };
+
+  const handleReaction = (messageId, emoji) => {
+    addReaction(messageId, emoji);
+    setShowEmojiPicker(null);
+  };
+
+  const addReaction = async (messageId, emoji) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:5000/api/messages/${messageId}/reactions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          emoji: emoji
+        })
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        // Update message in local state
+        setMessages(prev => prev.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, reactions: data.reactions }
+            : msg
+        ));
+      } else {
+        console.error('Failed to add reaction:', data.message);
+      }
+    } catch (error) {
+      console.error('Failed to add reaction:', error);
+    }
+  };
+
+  const removeReaction = async (messageId, emoji) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:5000/api/messages/${messageId}/reactions`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          emoji: emoji
+        })
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        // Update message in local state
+        setMessages(prev => prev.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, reactions: data.reactions }
+            : msg
+        ));
+      } else {
+        console.error('Failed to remove reaction:', data.message);
+      }
+    } catch (error) {
+      console.error('Failed to remove reaction:', error);
+    }
+  };
+
+  const toggleReaction = (messageId, emoji) => {
+    const message = messages.find(msg => msg.id === messageId);
+    if (message?.reactions?.[emoji]?.includes(currentUser?.id)) {
+      removeReaction(messageId, emoji);
+    } else {
+      addReaction(messageId, emoji);
+    }
   };
 
   const saveEdit = async () => {
@@ -666,11 +758,57 @@ const ChatInterface = () => {
                   </div>
                 </div>
                 
+                {/* Reactions */}
+                {message.reactions && Object.keys(message.reactions).length > 0 && (
+                  <div className="message-reactions">
+                    {Object.entries(message.reactions).map(([emoji, userIds]) => (
+                      <button 
+                        key={emoji} 
+                        className={`reaction ${userIds.includes(currentUser?.id) ? 'reacted' : ''}`}
+                        onClick={() => toggleReaction(message.id, emoji)}
+                      >
+                        <span className="reaction-emoji">{emoji}</span>
+                        <span className="reaction-count">{userIds.length}</span>
+                      </button>
+                    ))}
+                    <button 
+                      className="reaction-add-btn"
+                      onClick={() => setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id)}
+                    >
+                      <i className="fas fa-plus"></i>
+                    </button>
+                  </div>
+                )}
+                
+                {/* Emoji Picker */}
+                {showEmojiPicker === message.id && (
+                  <div className="emoji-picker">
+                    <div className="emoji-grid">
+                      {['👍', '👎', '❤️', '😂', '😮', '😢', '😡', '🔥', '💰', '🎉', '👏', '🙏', '💯', '🤔', '👀', '🎯', '🚀', '💎', '⭐', '🌟'].map((emoji) => (
+                        <button 
+                          key={emoji}
+                          className="emoji-btn"
+                          onClick={() => handleReaction(message.id, emoji)}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 {/* Reply menu */}
                 {showReplyMenu === message.id && (
                   <div className="reply-menu">
                     <button onClick={() => handleReply(message)} className="reply-btn">
                       <i className="fas fa-reply"></i> Reply
+                    </button>
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      setShowEmojiPicker(showEmojiPicker === message.id ? null : message.id);
+                      setShowReplyMenu(null);
+                    }} className="reaction-btn">
+                      <i className="fas fa-smile"></i> React
                     </button>
                     {message.user_id === currentUser?.id && (
                       <button onClick={() => handleEdit(message)} className="edit-btn">

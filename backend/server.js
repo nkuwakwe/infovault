@@ -1162,6 +1162,265 @@ app.post('/api/messages', async (req, res) => {
   }
 });
 
+// Add reaction to message
+app.post('/api/messages/:messageId/reactions', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    
+    if (!token || !emoji) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Get message and check vault access
+    const { data: message, error: messageError } = await supabase
+      .from('messages')
+      .select(`
+        chat_id,
+        reactions
+      `)
+      .eq('id', messageId)
+      .single();
+
+    if (messageError || !message) {
+      console.error('Message not found:', messageError);
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    // Get chat to find vault_id
+    const { data: chat, error: chatError } = await supabase
+      .from('chats')
+      .select('category_id')
+      .eq('id', message.chat_id)
+      .single();
+
+    if (chatError || !chat) {
+      console.error('Chat not found:', chatError);
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    // Get category to find vault_id
+    const { data: category, error: categoryError } = await supabase
+      .from('categories')
+      .select('vault_id')
+      .eq('id', chat.category_id)
+      .single();
+
+    if (categoryError || !category) {
+      console.error('Category not found:', categoryError);
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    // Check if user is member of the vault
+    const { data: member, error: memberError } = await supabase
+      .from('vault_members')
+      .select('user_id')
+      .eq('vault_id', category.vault_id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (memberError || !member) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this message'
+      });
+    }
+
+    // Update reactions
+    let reactions = message.reactions || {};
+    if (!reactions[emoji]) {
+      reactions[emoji] = [];
+    }
+    
+    // Add user to reaction if not already present
+    if (!reactions[emoji].includes(user.id)) {
+      reactions[emoji].push(user.id);
+    }
+
+    // Update message with new reactions
+    const { data: updatedMessage, error: updateError } = await supabase
+      .from('messages')
+      .update({ reactions })
+      .eq('id', messageId)
+      .select('reactions')
+      .single();
+
+    if (updateError) {
+      console.error('Reaction update error:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update reaction'
+      });
+    }
+
+    console.log('Reaction added successfully:', { messageId, emoji, userId: user.id });
+    
+    res.json({
+      success: true,
+      reactions: updatedMessage.reactions
+    });
+
+  } catch (error) {
+    console.error('Add reaction error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Remove reaction from message
+app.delete('/api/messages/:messageId/reactions', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    
+    if (!token || !emoji) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Get message and check vault access
+    const { data: message, error: messageError } = await supabase
+      .from('messages')
+      .select(`
+        chat_id,
+        reactions
+      `)
+      .eq('id', messageId)
+      .single();
+
+    if (messageError || !message) {
+      console.error('Message not found:', messageError);
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    // Get chat to find vault_id
+    const { data: chat, error: chatError } = await supabase
+      .from('chats')
+      .select('category_id')
+      .eq('id', message.chat_id)
+      .single();
+
+    if (chatError || !chat) {
+      console.error('Chat not found:', chatError);
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    // Get category to find vault_id
+    const { data: category, error: categoryError } = await supabase
+      .from('categories')
+      .select('vault_id')
+      .eq('id', chat.category_id)
+      .single();
+
+    if (categoryError || !category) {
+      console.error('Category not found:', categoryError);
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    // Check if user is member of the vault
+    const { data: member, error: memberError } = await supabase
+      .from('vault_members')
+      .select('user_id')
+      .eq('vault_id', category.vault_id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (memberError || !member) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this message'
+      });
+    }
+
+    // Update reactions
+    let reactions = message.reactions || {};
+    if (reactions[emoji]) {
+      // Remove user from reaction
+      reactions[emoji] = reactions[emoji].filter(id => id !== user.id);
+      
+      // Remove emoji if no users left
+      if (reactions[emoji].length === 0) {
+        delete reactions[emoji];
+      }
+    }
+
+    // Update message with new reactions
+    const { data: updatedMessage, error: updateError } = await supabase
+      .from('messages')
+      .update({ reactions })
+      .eq('id', messageId)
+      .select('reactions')
+      .single();
+
+    if (updateError) {
+      console.error('Reaction update error:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to update reaction'
+      });
+    }
+
+    console.log('Reaction removed successfully:', { messageId, emoji, userId: user.id });
+    
+    res.json({
+      success: true,
+      reactions: updatedMessage.reactions
+    });
+
+  } catch (error) {
+    console.error('Remove reaction error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Get user profile with vault role
 app.get('/api/users/:userId/profile', async (req, res) => {
   try {
