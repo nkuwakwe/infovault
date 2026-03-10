@@ -802,24 +802,24 @@ app.get('/api/vaults/:vaultId/members', async (req, res) => {
 
     // Organize members by roles
     const membersByRole = {};
+    const membersWithoutRoles = [];
     
     data.forEach(member => {
-      const roleArray = member.vault_member_roles;
+      // Debug log to see the structure
+      console.log('Member structure:', JSON.stringify(member, null, 2));
       
-      let role;
+      const roleArray = member.vault_member_roles;
       if (!roleArray || roleArray.length === 0) {
-        // Create a default role for members without assigned roles
-        role = {
-          id: 'default',
-          name: 'Member',
-          color: '#ffffff',
-          picture: null,
-          position: -1 // Lowest position
-        };
-      } else {
-        role = roleArray[0].roles; // Get first role from array
+        console.log('No role data found for member:', member.user_id);
+        // Add to members without roles
+        membersWithoutRoles.push({
+          ...member.users,
+          joined_at: member.joined_at
+        });
+        return;
       }
       
+      const role = roleArray[0].roles; // Get first role from array
       const roleKey = role.id;
       
       if (!membersByRole[roleKey]) {
@@ -838,6 +838,18 @@ app.get('/api/vaults/:vaultId/members', async (req, res) => {
         joined_at: member.joined_at
       });
     });
+
+    // Add members without roles to a default role if any exist
+    if (membersWithoutRoles.length > 0) {
+      membersByRole['no-role'] = {
+        id: 'no-role',
+        name: 'Members',
+        color: '#ffffff',
+        picture: null,
+        position: -1, // Show last
+        members: membersWithoutRoles
+      };
+    }
 
     // Convert to array and sort by position (highest first)
     const sortedRoles = Object.values(membersByRole).sort((a, b) => b.position - a.position);
