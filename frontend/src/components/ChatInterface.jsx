@@ -142,7 +142,7 @@ const ChatInterface = () => {
       
       const data = await response.json();
       if (response.ok) {
-        setMembers(data.members || []);
+        setMembers(data.roles || []);
       }
     } catch (error) {
       console.error('Failed to fetch vault members:', error);
@@ -768,7 +768,12 @@ const ChatInterface = () => {
                   )}
                 </div>
                 <div className="msg-content">
-                  <span className="username">{message.users?.display_name || message.users?.username}</span>
+                  <span 
+                    className="username" 
+                    style={{ color: message.user_role?.color || '#dbb056' }}
+                  >
+                    {message.users?.display_name || message.users?.username}
+                  </span>
                   <span className="timestamp">
                     {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
@@ -953,26 +958,51 @@ const ChatInterface = () => {
 
         {/* Members Sidebar */}
         <div className="members-sidebar">
-          <div className="members-title">Members — {members.length}</div>
-          {members.map((member) => (
-            <div key={member.id} className="member">
-              <div className="status-dot"></div>
-              <div className="member-avatar">
-                {member.pfp ? (
-                  <img 
-                    src={member.pfp} 
-                    alt={member.display_name || member.username} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                  />
-                ) : (
-                  getUserInitials(member)
-                )}
+          <div className="members-title">Members — {members.reduce((total, role) => total + role.members.length, 0)}</div>
+          {members.map((role) => (
+            role.members.length > 0 && (
+              <div key={role.id} className="role-section">
+                <div className="role-header">
+                  {role.picture ? (
+                    <img 
+                      src={role.picture} 
+                      alt={role.name} 
+                      className="role-icon"
+                    />
+                  ) : (
+                    <div className="role-icon-placeholder">{role.name.charAt(0).toUpperCase()}</div>
+                  )}
+                  <span className="role-name" style={{ color: role.color || '#ffffff' }}>
+                    {role.name}
+                  </span>
+                  <span className="role-count">— {role.members.length}</span>
+                </div>
+                {role.members.map((member) => (
+                  <div key={member.id} className="member">
+                    <div className="status-dot"></div>
+                    <div className="member-avatar">
+                      {member.pfp ? (
+                        <img 
+                          src={member.pfp} 
+                          alt={member.display_name || member.username} 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                        />
+                      ) : (
+                        getUserInitials(member)
+                      )}
+                    </div>
+                    <div className="member-info">
+                      <div 
+                        className="member-name" 
+                        style={{ color: role.color || '#ffffff' }}
+                      >
+                        {member.display_name || member.username}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="member-info">
-                <div className="member-name">{member.display_name || member.username}</div>
-                <div className="member-role">{member.vault_role}</div>
-              </div>
-            </div>
+            )
           ))}
         </div>
 

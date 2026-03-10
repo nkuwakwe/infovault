@@ -767,7 +767,7 @@ app.get('/api/vaults/:vaultId/members', async (req, res) => {
       });
     }
 
-    // Fetch vault members with user details
+    // Fetch vault members with user details and roles
     const { data, error } = await supabase
       .from('vault_members')
       .select(`
@@ -778,6 +778,15 @@ app.get('/api/vaults/:vaultId/members', async (req, res) => {
           username,
           display_name,
           pfp
+        ),
+        vault_member_roles!inner(
+          roles!inner(
+            id,
+            name,
+            color,
+            picture,
+            position
+          )
         )
       `)
       .eq('vault_id', vaultId);
@@ -791,14 +800,45 @@ app.get('/api/vaults/:vaultId/members', async (req, res) => {
       });
     }
 
-    const members = data.map(member => ({
-      ...member.users,
-      joined_at: member.joined_at
-    }));
+    // Organize members by roles
+    const membersByRole = {};
+    
+    data.forEach(member => {
+      // Debug log to see the structure
+      console.log('Member structure:', JSON.stringify(member, null, 2));
+      
+      const roleArray = member.vault_member_roles;
+      if (!roleArray || roleArray.length === 0) {
+        console.log('No role data found for member:', member.user_id);
+        return; // Skip this member if no role data
+      }
+      
+      const role = roleArray[0].roles; // Get first role from array
+      const roleKey = role.id;
+      
+      if (!membersByRole[roleKey]) {
+        membersByRole[roleKey] = {
+          id: role.id,
+          name: role.name,
+          color: role.color,
+          picture: role.picture,
+          position: role.position,
+          members: []
+        };
+      }
+      
+      membersByRole[roleKey].members.push({
+        ...member.users,
+        joined_at: member.joined_at
+      });
+    });
+
+    // Convert to array and sort by position (highest first)
+    const sortedRoles = Object.values(membersByRole).sort((a, b) => b.position - a.position);
 
     res.json({
       success: true,
-      members: members
+      roles: sortedRoles
     });
 
   } catch (error) {
@@ -1062,7 +1102,7 @@ app.get('/api/chats/:chatId/messages', async (req, res) => {
       });
     }
 
-    // Fetch messages for this chat
+    // Fetch messages for this chat with user roles
     const { data, error } = await supabase
       .from('messages')
       .select(`
@@ -1123,10 +1163,36 @@ app.get('/api/chats/:chatId/messages', async (req, res) => {
       }
     }
 
-    // Merge reply data into messages
+    // Fetch user roles for all message authors
+    const userIds = [...new Set(data.map(msg => msg.user_id))];
+    const { data: userRoles, error: roleError } = await supabase
+      .from('vault_member_roles')
+      .select(`
+        user_id,
+        roles!inner(
+          id,
+          name,
+          color,
+          picture,
+          position
+        )
+      `)
+      .eq('vault_id', vaultId)
+      .in('user_id', userIds);
+
+    // Create role lookup map
+    const roleMap = {};
+    if (!roleError && userRoles) {
+      userRoles.forEach(userRole => {
+        roleMap[userRole.user_id] = userRole.roles;
+      });
+    }
+
+    // Merge reply data and role information into messages
     const messagesWithReplies = data.map(message => ({
       ...message,
-      reply_to: message.reply_to_id ? replyData[message.reply_to_id] : null
+      reply_to: message.reply_to_id ? replyData[message.reply_to_id] : null,
+      user_role: roleMap[message.user_id] || null
     }));
 
     res.json({

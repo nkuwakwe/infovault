@@ -1338,3 +1338,83 @@ body {
   font-size: 16px;
   margin: 0;
 }
+
+/* Role-based Members Sidebar */
+.role-section {
+  margin-bottom: 20px;
+}
+
+.role-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.role-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.role-icon-placeholder {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(219, 176, 86, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #dbb056;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.role-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.role-count {
+  color: #ffffff60;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  margin-left: 28px; /* Indent members under roles */
+}
+
+.member-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #33261c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #dbb056;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-name {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
