@@ -547,7 +547,7 @@ const DirectMessages = () => {
       const uploadData = await uploadResponse.json();
       if (uploadResponse.ok) {
         // Send DM with attachment
-        const messageResponse = await fetch('http://localhost:5000/api/dm-messages', {
+        const messageResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm-messages`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -599,7 +599,7 @@ const DirectMessages = () => {
       const uploadData = await uploadResponse.json();
       if (uploadResponse.ok) {
         // Send DM with null content and attachment
-        const messageResponse = await fetch('http://localhost:5000/api/dm-messages', {
+        const messageResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm-messages`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,

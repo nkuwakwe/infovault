@@ -527,7 +527,7 @@ const ChatInterface = () => {
       const uploadData = await uploadResponse.json();
       if (uploadResponse.ok) {
         // Send message with attachment
-        const messageResponse = await fetch('http://localhost:5000/api/messages', {
+        const messageResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/messages`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -579,7 +579,7 @@ const ChatInterface = () => {
       const uploadData = await uploadResponse.json();
       if (uploadResponse.ok) {
         // Send message with null content and attachment
-        const messageResponse = await fetch('http://localhost:5000/api/messages', {
+        const messageResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/messages`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
