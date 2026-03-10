@@ -31,6 +31,55 @@ const DirectMessages = () => {
   const [showVaultBrowser, setShowVaultBrowser] = useState(false);
   const [availableVaults, setAvailableVaults] = useState([]);
   const [userVaults, setUserVaults] = useState([]);
+  const [typingUsers, setTypingUsers] = useState(new Set()); // Store typing user IDs
+  const [typingTimeout, setTypingTimeout] = useState(null);
+
+  // Typing indicator functions
+  const handleTypingStart = () => {
+    if (!selectedFriend || !currentConversation) return;
+    
+    // Clear existing timeout
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
+    
+    // Send typing event
+    sendTypingEvent(true);
+    
+    // Set timeout to stop typing indicator after 3 seconds
+    const timeout = setTimeout(() => {
+      sendTypingEvent(false);
+    }, 3000);
+    
+    setTypingTimeout(timeout);
+  };
+
+  const sendTypingEvent = async (isTyping) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm/typing`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          conversation_id: currentConversation.id,
+          is_typing: isTyping
+        })
+      });
+    } catch (error) {
+      console.error('Failed to send typing event:', error);
+    }
+  };
+
+  const handleTypingStop = () => {
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+      setTypingTimeout(null);
+    }
+    sendTypingEvent(false);
+  };
 
   useEffect(() => {
     fetchUserData();
@@ -1221,6 +1270,23 @@ const DirectMessages = () => {
                 )}
               </div>
 
+              {/* Typing Indicator */}
+              {typingUsers.size > 0 && (
+                <div className="typing-indicator">
+                  <div className="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <span className="typing-text">
+                    {Array.from(typingUsers).length === 1 
+                      ? `${Array.from(typingUsers)[0].display_name || Array.from(typingUsers)[0].username} is typing...`
+                      : `${Array.from(typingUsers).length} people are typing...`
+                    }
+                  </span>
+                </div>
+              )}
+
               {/* Message Input */}
               <div className="dm-input-bar">
                 {/* Reply indicator */}
@@ -1272,7 +1338,14 @@ const DirectMessages = () => {
                     className="dm-message-input"
                     placeholder={editingMessage ? "Edit message..." : `Message @${selectedFriend.display_name || selectedFriend.username}`}
                     value={editingMessage ? editInput : dmInput}
-                    onChange={(e) => editingMessage ? setEditInput(e.target.value) : setDmInput(e.target.value)}
+                    onChange={(e) => {
+                      if (editingMessage) {
+                        setEditInput(e.target.value);
+                      } else {
+                        setDmInput(e.target.value);
+                        handleTypingStart();
+                      }
+                    }}
                     onKeyPress={editingMessage ? (e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
@@ -1282,7 +1355,18 @@ const DirectMessages = () => {
                         e.preventDefault();
                         cancelEdit();
                       }
-                    } : handleDMKeyPress}
+                    } : (e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendDMMessage();
+                        handleTypingStop();
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!editingMessage) {
+                        handleTypingStop();
+                      }
+                    }}
                   />
                   <div className="dm-input-icons">
                     <input 

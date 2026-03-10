@@ -2970,6 +2970,61 @@ app.post('/api/friend-requests/:senderId/:receiverId/respond', async (req, res) 
   }
 });
 
+// Handle typing indicators
+app.post('/api/dm/typing', async (req, res) => {
+  try {
+    const { conversation_id, is_typing } = req.body;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token || !conversation_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if user is participant in conversation
+    const { data: participant, error: participantError } = await supabase
+      .from('dm_participants')
+      .select('*')
+      .eq('conversation_id', conversation_id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (participantError || !participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this conversation'
+      });
+    }
+
+    // In a real implementation, you would use WebSocket or Server-Sent Events
+    // For now, we'll just return success
+    // The frontend would need to poll or use WebSocket to receive typing events
+    
+    res.json({
+      success: true,
+      message: 'Typing event processed'
+    });
+
+  } catch (error) {
+    console.error('Typing event error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Get user's friends
 app.get('/api/friends', async (req, res) => {
   try {
