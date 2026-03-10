@@ -779,8 +779,8 @@ app.get('/api/vaults/:vaultId/members', async (req, res) => {
           display_name,
           pfp
         ),
-        vault_member_roles!inner(
-          roles!inner(
+        vault_member_roles!left(
+          roles!left(
             id,
             name,
             color,
@@ -804,16 +804,22 @@ app.get('/api/vaults/:vaultId/members', async (req, res) => {
     const membersByRole = {};
     
     data.forEach(member => {
-      // Debug log to see the structure
-      console.log('Member structure:', JSON.stringify(member, null, 2));
-      
       const roleArray = member.vault_member_roles;
+      
+      let role;
       if (!roleArray || roleArray.length === 0) {
-        console.log('No role data found for member:', member.user_id);
-        return; // Skip this member if no role data
+        // Create a default role for members without assigned roles
+        role = {
+          id: 'default',
+          name: 'Member',
+          color: '#ffffff',
+          picture: null,
+          position: -1 // Lowest position
+        };
+      } else {
+        role = roleArray[0].roles; // Get first role from array
       }
       
-      const role = roleArray[0].roles; // Get first role from array
       const roleKey = role.id;
       
       if (!membersByRole[roleKey]) {
