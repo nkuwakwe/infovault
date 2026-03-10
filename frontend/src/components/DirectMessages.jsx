@@ -55,7 +55,7 @@ const DirectMessages = () => {
   const fetchAvailableVaults = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/vaults/public', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/vaults/public`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -73,7 +73,7 @@ const DirectMessages = () => {
   const fetchUserVaults = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/vaults/user', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/vaults/user`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -91,7 +91,7 @@ const DirectMessages = () => {
   const joinVault = async (vaultId) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/vaults/${vaultId}/join`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/vaults/${vaultId}/join`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -114,7 +114,7 @@ const DirectMessages = () => {
   const fetchUserData = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/user/profile', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/user/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -132,7 +132,7 @@ const DirectMessages = () => {
   const fetchFriendRequests = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/friend-requests', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/friend-requests`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -150,7 +150,7 @@ const DirectMessages = () => {
   const fetchSentRequests = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/friend-requests/sent', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/friend-requests/sent`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -171,7 +171,7 @@ const DirectMessages = () => {
   const fetchFriends = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/friends', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/friends`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -192,7 +192,7 @@ const DirectMessages = () => {
   const sendFriendRequest = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/friend-requests', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/friend-requests`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -223,7 +223,7 @@ const DirectMessages = () => {
   const respondToFriendRequest = async (request, action) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/friend-requests/${request.sender_id}/${request.receiver_id}/respond`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/friend-requests/${request.sender_id}/${request.receiver_id}/respond`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -276,7 +276,7 @@ const DirectMessages = () => {
   const fetchCommonVaults = async (friendId) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/users/${friendId}/common-vaults`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/${friendId}/common-vaults`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -303,7 +303,7 @@ const DirectMessages = () => {
   const createOrGetDMConversation = async (friendId) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/dm-conversations', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm-conversations`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -328,7 +328,7 @@ const DirectMessages = () => {
   const fetchDMMessages = async (conversationId) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/dm-conversations/${conversationId}/messages`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm-conversations/${conversationId}/messages`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -359,7 +359,7 @@ const DirectMessages = () => {
       
       // If no conversation exists, create one and send first message
       if (!conversationId) {
-        const response = await fetch('http://localhost:5000/api/dm-messages', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm-messages`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -391,7 +391,7 @@ const DirectMessages = () => {
         }
       } else {
         // Send to existing conversation
-        const response = await fetch('http://localhost:5000/api/dm-messages', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm-messages`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -482,7 +482,7 @@ const DirectMessages = () => {
     
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/dm-messages/${editingMessage.id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm-messages/${editingMessage.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -536,7 +536,7 @@ const DirectMessages = () => {
       formData.append('conversation_id', currentConversation.id);
       
       const token = localStorage.getItem('access_token');
-      const uploadResponse = await fetch('http://localhost:5000/api/upload/dm', {
+      const uploadResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/upload/dm`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -588,7 +588,7 @@ const DirectMessages = () => {
       formData.append('conversation_id', currentConversation.id);
       
       const token = localStorage.getItem('access_token');
-      const uploadResponse = await fetch('http://localhost:5000/api/upload/dm', {
+      const uploadResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/upload/dm`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -681,7 +681,7 @@ const DirectMessages = () => {
   const addDMReaction = async (messageId, emoji) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/dm-messages/${messageId}/reactions`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm-messages/${messageId}/reactions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -711,7 +711,7 @@ const DirectMessages = () => {
   const removeDMReaction = async (messageId, emoji) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/dm-messages/${messageId}/reactions`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm-messages/${messageId}/reactions`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

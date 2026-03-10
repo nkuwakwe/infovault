@@ -62,7 +62,7 @@ const ChatInterface = () => {
   const fetchUserData = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/user/profile', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/user/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -80,7 +80,7 @@ const ChatInterface = () => {
   const fetchUserVaults = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/vaults/user', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/vaults/user`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -105,7 +105,7 @@ const ChatInterface = () => {
     
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/vaults/${currentVault.id}/chats`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/vaults/${currentVault.id}/chats`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -134,7 +134,7 @@ const ChatInterface = () => {
     
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/vaults/${currentVault.id}/members`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/vaults/${currentVault.id}/members`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -154,7 +154,7 @@ const ChatInterface = () => {
     
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/chats/${selectedChat.id}/messages`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/chats/${selectedChat.id}/messages`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -172,7 +172,7 @@ const ChatInterface = () => {
   const fetchAvailableVaults = async () => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/vaults/public', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/vaults/public`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -190,7 +190,7 @@ const ChatInterface = () => {
   const joinVault = async (vaultId) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/vaults/${vaultId}/join`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/vaults/${vaultId}/join`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -215,7 +215,7 @@ const ChatInterface = () => {
     
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/messages', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/messages`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -247,7 +247,7 @@ const ChatInterface = () => {
       const token = localStorage.getItem('access_token');
       
       // Fetch user's full profile and vault role
-      const response = await fetch(`http://localhost:5000/api/users/${user.id}/profile?vault_id=${currentVault.id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/${user.id}/profile?vault_id=${currentVault.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -272,7 +272,7 @@ const ChatInterface = () => {
     
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/direct-messages', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/direct-messages`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -361,7 +361,7 @@ const ChatInterface = () => {
   const addReaction = async (messageId, emoji) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/messages/${messageId}/reactions`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/messages/${messageId}/reactions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -391,7 +391,7 @@ const ChatInterface = () => {
   const removeReaction = async (messageId, emoji) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/messages/${messageId}/reactions`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/messages/${messageId}/reactions`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -432,7 +432,7 @@ const ChatInterface = () => {
     
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch(`http://localhost:5000/api/messages/${editingMessage.id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/messages/${editingMessage.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -479,7 +479,7 @@ const ChatInterface = () => {
   const sendMessageWithAttachment = async (attachment) => {
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:5000/api/messages', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/messages`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -516,7 +516,7 @@ const ChatInterface = () => {
       formData.append('chat_id', selectedChat.id);
       
       const token = localStorage.getItem('access_token');
-      const uploadResponse = await fetch('http://localhost:5000/api/upload/chat', {
+      const uploadResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/upload/chat`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -568,7 +568,7 @@ const ChatInterface = () => {
       formData.append('chat_id', selectedChat.id);
       
       const token = localStorage.getItem('access_token');
-      const uploadResponse = await fetch('http://localhost:5000/api/upload/chat', {
+      const uploadResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/upload/chat`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
