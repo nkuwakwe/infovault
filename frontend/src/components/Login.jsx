@@ -19,7 +19,7 @@ const Login = () => {
         const token = localStorage.getItem('access_token');
         if (!token) return;
 
-        const response = await fetch('http://localhost:5000/api/user/profile', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/user/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -29,7 +29,7 @@ const Login = () => {
           const data = await response.json();
           if (data.user && data.user.display_name) {
             // User has a profile, check if they have vaults
-            const vaultsResponse = await fetch('http://localhost:5000/api/vaults/user', {
+            const vaultsResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/vaults/user`, {
               headers: {
                 'Authorization': `Bearer ${token}`
               }
@@ -71,7 +71,7 @@ const Login = () => {
       const token = localStorage.getItem('access_token');
       
       // Check if user has a profile
-      const profileResponse = await fetch('http://localhost:5000/api/user/profile', {
+      const profileResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/user/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -81,7 +81,7 @@ const Login = () => {
         const profileData = await profileResponse.json();
         if (profileData.user && profileData.user.display_name) {
           // User has a profile, check if they have vaults
-          const vaultsResponse = await fetch('http://localhost:5000/api/vaults/user', {
+          const vaultsResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/vaults/user`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
