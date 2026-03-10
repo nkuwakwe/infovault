@@ -1338,25 +1338,7 @@ const DirectMessages = () => {
                 </div>
               </div>
 
-              {/* Profile Content */}
-              <div className="profile-content">
-                <h1 className="profile-display-name">{selectedFriend.display_name || selectedFriend.username}</h1>
-                <div className="profile-username-row">
-                  <div className="profile-username">@{selectedFriend.username}</div>
-                  <div className="profile-tag">USER</div>
-                </div>
-                <div className="profile-bio-box">
-                  <div className="profile-bio-title">Bio</div>
-                  <div className="profile-bio-text">
-                    {selectedFriend.bio || 'No bio available.'}
-                  </div>
-                </div>
-                <div className="profile-member-since">
-                  Member Since<br />
-                  {selectedFriend.created_at ? new Date(selectedFriend.created_at).toLocaleDateString() : 'Unknown'}
-                </div>
-                <button className="profile-view-full-btn">View Full Profile</button>
-              </div>
+
               <button className="profile-close-btn" onClick={closeDMChat}>
                 <i className="fas fa-times"></i>
               </button>
@@ -1380,6 +1362,15 @@ const DirectMessages = () => {
             <div className="profile-view">
               {/* Profile Header */}
               <div className="profile-header">
+                {selectedFriend.banner ? (
+                    <img 
+                      src={selectedFriend.banner} 
+                      alt="Profile Banner" 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <div className="profile-banner-gradient"></div>
+                  )}
                 <div className="profile-avatar-wrapper">
                   
                   <div className="profile-avatar">

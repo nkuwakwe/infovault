@@ -1630,7 +1630,7 @@ body {
 }
 
 .profile-header {
-  height: 140px;
+  height: 40px;
   background: linear-gradient(135deg, #1a1208, #0f0a05);
   position: relative;
   border-bottom: 3px solid rgba(219,176,86,0.25);
