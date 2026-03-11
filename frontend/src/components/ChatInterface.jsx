@@ -26,6 +26,9 @@ const ChatInterface = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(null); // message id
   const [showVaultBrowser, setShowVaultBrowser] = useState(false);
   const [availableVaults, setAvailableVaults] = useState([]);
+  const [typingUsers, setTypingUsers] = useState(new Set()); // Store typing user IDs
+  const [typingTimeout, setTypingTimeout] = useState(null);
+  const [typingPollInterval, setTypingPollInterval] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -209,6 +212,106 @@ const ChatInterface = () => {
       console.error('Failed to join vault:', error);
     }
   };
+
+  // Typing indicator functions for chat
+  const handleTypingStart = () => {
+    if (!selectedChat) return;
+    
+    // Clear existing timeout
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
+    
+    // Send typing event
+    sendTypingEvent(true);
+    
+    // Set timeout to stop typing indicator after 3 seconds
+    const timeout = setTimeout(() => {
+      sendTypingEvent(false);
+    }, 3000);
+    
+    setTypingTimeout(timeout);
+  };
+
+  const sendTypingEvent = async (isTyping) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      console.log('Sending chat typing event:', { isTyping, chatId: selectedChat?.id });
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/chats/typing`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          chat_id: selectedChat.id,
+          is_typing: isTyping
+        })
+      });
+      
+      const result = await response.json();
+      console.log('Chat typing event response:', result);
+    } catch (error) {
+      console.error('Failed to send chat typing event:', error);
+    }
+  };
+
+  const handleTypingStop = () => {
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+      setTypingTimeout(null);
+    }
+    sendTypingEvent(false);
+  };
+
+  // Poll for typing indicators in chat
+  const fetchChatTypingIndicators = async () => {
+    if (!selectedChat) return;
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/chats/typing/${selectedChat.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Filter out current user from typing users
+        const otherTypingUsers = data.typing_users.filter(user => user.user_id !== currentUser?.id);
+        setTypingUsers(new Set(otherTypingUsers));
+      }
+    } catch (error) {
+      console.error('Failed to fetch chat typing indicators:', error);
+    }
+  };
+
+  // Start/stop polling when chat changes
+  useEffect(() => {
+    if (selectedChat) {
+      // Start polling every 2 seconds
+      const interval = setInterval(fetchChatTypingIndicators, 2000);
+      setTypingPollInterval(interval);
+      
+      // Initial fetch
+      fetchChatTypingIndicators();
+    } else {
+      // Stop polling
+      if (typingPollInterval) {
+        clearInterval(typingPollInterval);
+        setTypingPollInterval(null);
+      }
+      setTypingUsers(new Set());
+    }
+    
+    return () => {
+      if (typingPollInterval) {
+        clearInterval(typingPollInterval);
+      }
+    };
+  }, [selectedChat, currentUser]);
 
   const sendMessage = async () => {
     if (!messageInput.trim() || !selectedChat) return;
@@ -878,6 +981,23 @@ const ChatInterface = () => {
             )}
           </div>
 
+          {/* Typing Indicator */}
+          {typingUsers.size > 0 && (
+            <div className="typing-indicator">
+              <div className="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <span className="typing-text">
+                {Array.from(typingUsers).length === 1 
+                  ? `${Array.from(typingUsers)[0].display_name || Array.from(typingUsers)[0].username} is typing...`
+                  : `${Array.from(typingUsers).length} people are typing...`
+                }
+              </span>
+            </div>
+          )}
+
           <div className="input-bar">
             {/* Reply indicator */}
             {replyingTo && (
@@ -928,17 +1048,31 @@ const ChatInterface = () => {
               placeholder={editingMessage ? "Edit message..." : (selectedChat ? `Message #${selectedChat.name}` : "Select a channel...")}
               disabled={!selectedChat}
               value={editingMessage ? editInput : messageInput}
-              onChange={(e) => editingMessage ? setEditInput(e.target.value) : setMessageInput(e.target.value)}
-              onKeyPress={editingMessage ? (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  saveEdit();
-                }
-                if (e.key === 'Escape') {
-                  e.preventDefault();
-                  cancelEdit();
-                }
-              } : handleKeyPress}
+              onChange={(e) => {
+                    if (editingMessage) {
+                      setEditInput(e.target.value);
+                    } else {
+                      setMessageInput(e.target.value);
+                      handleTypingStart();
+                    }
+                  }}
+                  onKeyPress={editingMessage ? (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      saveEdit();
+                    }
+                  } : (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                      handleTypingStop();
+                    }
+                  }}
+                  onBlur={() => {
+                    if (!editingMessage) {
+                      handleTypingStop();
+                    }
+                  }}
             />
             <div className="input-icons">
               <input 

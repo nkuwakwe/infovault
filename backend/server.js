@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 5000;
 
 // In-memory storage for typing indicators (in production, use Redis or database)
 const typingIndicators = new Map(); // conversation_id -> [{ user_id, username, display_name, timestamp }]
+const chatTypingIndicators = new Map(); // chat_id -> [{ user_id, username, display_name, timestamp }]
 
 app.use(cors());
 app.use(express.json());
@@ -3120,6 +3121,204 @@ app.get('/api/dm/typing/:conversation_id', async (req, res) => {
 
   } catch (error) {
     console.error('Get typing indicators error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Handle chat typing indicators
+app.post('/api/chats/typing', async (req, res) => {
+  try {
+    const { chat_id, is_typing } = req.body;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token || !chat_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if user is member of the vault that contains this chat
+    const { data: chatData, error: chatError } = await supabase
+      .from('chats')
+      .select(`
+        id,
+        category_id,
+        categories!inner(
+          id,
+          vault_id
+        )
+      `)
+      .eq('id', chat_id)
+      .single();
+
+    if (chatError || !chatData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    const vaultId = chatData.categories.vault_id;
+
+    const { data: memberCheck, error: memberError } = await supabase
+      .from('vault_members')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('vault_id', vaultId)
+      .single();
+
+    if (memberError || !memberCheck) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this chat'
+      });
+    }
+
+    // Get user details for typing indicator
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, username, display_name')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get user details'
+      });
+    }
+
+    // Update chat typing indicators storage
+    if (!chatTypingIndicators.has(chat_id)) {
+      chatTypingIndicators.set(chat_id, []);
+    }
+
+    const chatTyping = chatTypingIndicators.get(chat_id);
+    
+    if (is_typing) {
+      // Add or update user's typing status
+      const existingIndex = chatTyping.findIndex(t => t.user_id === user.id);
+      const typingInfo = {
+        user_id: user.id,
+        username: userData.username,
+        display_name: userData.display_name,
+        timestamp: Date.now()
+      };
+      
+      if (existingIndex >= 0) {
+        chatTyping[existingIndex] = typingInfo;
+      } else {
+        chatTyping.push(typingInfo);
+      }
+    } else {
+      // Remove user's typing status
+      const filteredTyping = chatTyping.filter(t => t.user_id !== user.id);
+      chatTypingIndicators.set(chat_id, filteredTyping);
+    }
+    
+    res.json({
+      success: true,
+      message: 'Chat typing event processed'
+    });
+
+  } catch (error) {
+    console.error('Chat typing event error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get typing indicators for a chat
+app.get('/api/chats/typing/:chat_id', async (req, res) => {
+  try {
+    const { chat_id } = req.params;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if user is member of the vault that contains this chat
+    const { data: chatData, error: chatError } = await supabase
+      .from('chats')
+      .select(`
+        id,
+        category_id,
+        categories!inner(
+          id,
+          vault_id
+        )
+      `)
+      .eq('id', chat_id)
+      .single();
+
+    if (chatError || !chatData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Chat not found'
+      });
+    }
+
+    const vaultId = chatData.categories.vault_id;
+
+    const { data: memberCheck, error: memberError } = await supabase
+      .from('vault_members')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('vault_id', vaultId)
+      .single();
+
+    if (memberError || !memberCheck) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this chat'
+      });
+    }
+
+    // Get typing indicators for this chat
+    const chatTyping = chatTypingIndicators.get(chat_id) || [];
+    
+    // Filter out typing indicators older than 5 seconds (cleanup)
+    const now = Date.now();
+    const recentTyping = chatTyping.filter(t => now - t.timestamp < 5000);
+    
+    // Update storage with cleaned data
+    chatTypingIndicators.set(chat_id, recentTyping);
+    
+    res.json({
+      success: true,
+      typing_users: recentTyping
+    });
+
+  } catch (error) {
+    console.error('Get chat typing indicators error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

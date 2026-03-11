@@ -102,7 +102,7 @@ const DirectMessages = () => {
       if (response.ok) {
         const data = await response.json();
         // Filter out current user from typing users
-        const otherTypingUsers = data.typing_users.filter(user => user.id !== currentUser?.id);
+        const otherTypingUsers = data.typing_users.filter(user => user.user_id !== currentUser?.id);
         setTypingUsers(new Set(otherTypingUsers));
       }
     } catch (error) {
@@ -1338,29 +1338,6 @@ const DirectMessages = () => {
                       : `${Array.from(typingUsers).length} people are typing...`
                     }
                   </span>
-                </div>
-              )}
-
-              {/* Debug Testing Button - Remove in production */}
-              {process.env.NODE_ENV === 'development' && (
-                <div style={{ padding: '10px', background: 'rgba(255,0,0,0.1)', margin: '10px 0' }}>
-                  <button 
-                    onClick={() => {
-                      // Simulate typing indicator
-                      setTypingUsers(new Set([{ display_name: 'Test User', username: 'testuser' }]));
-                      setTimeout(() => setTypingUsers(new Set()), 3000);
-                    }}
-                    style={{ 
-                      padding: '5px 10px', 
-                      background: '#dbb056', 
-                      color: '#000', 
-                      border: 'none', 
-                      borderRadius: '4px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Test Typing Indicator
-                  </button>
                 </div>
               )}
 
