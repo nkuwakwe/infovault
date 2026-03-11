@@ -1587,3 +1587,128 @@ body {
 .reply-menu .delete-btn:hover {
   background: #c82333;
 }
+
+/* Link Previews */
+.message-content {
+  word-wrap: break-word;
+}
+
+.message-content .message-link {
+  color: #4a9eff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.message-content .message-link:hover {
+  color: #6bb3ff;
+}
+
+.link-preview {
+  margin-top: 8px;
+  border: 1px solid rgba(219, 176, 86, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(219, 176, 86, 0.05);
+  transition: all 0.2s ease;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.link-preview:hover {
+  background: rgba(219, 176, 86, 0.1);
+  border-color: rgba(219, 176, 86, 0.5);
+}
+
+.link-preview-error {
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.link-preview-error i {
+  color: #dbb056;
+}
+
+.link-preview-error .preview-link {
+  color: #4a9eff;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.link-preview-error .preview-link:hover {
+  text-decoration: underline;
+}
+
+.preview-image {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background: #1a1208;
+  position: relative;
+}
+
+.preview-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.preview-content {
+  padding: 16px;
+  background: rgba(26, 18, 8, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.preview-title {
+  font-weight: 600;
+  color: #ffffff;
+  font-size: 16px;
+  margin-bottom: 8px;
+  line-height: 1.3;
+  display: -webkit-box;
+  display: box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  box-orient: vertical;
+  overflow: hidden;
+}
+
+.preview-description {
+  color: #ffffff80;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  display: -webkit-box;
+  display: box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  box-orient: vertical;
+  overflow: hidden;
+}
+
+.preview-url {
+  color: #dbb056;
+  font-size: 13px;
+  opacity: 0.9;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.preview-domain {
+  color: #ffffff60;
+  font-size: 12px;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
