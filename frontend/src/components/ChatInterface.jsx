@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import './ChatInterface.css';
 
 const ChatInterface = () => {
+  const { vault: vaultIdFromUrl } = useParams();
   const [vaults, setVaults] = useState([]);
   const [userVaults, setUserVaults] = useState([]);
   const [currentVault, setCurrentVault] = useState(null);
@@ -32,9 +33,18 @@ const ChatInterface = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchUserData();
     fetchUserVaults();
   }, []);
+
+  useEffect(() => {
+    if (vaultIdFromUrl && userVaults.length > 0) {
+      const urlVault = userVaults.find(v => v.id === vaultIdFromUrl);
+      if (urlVault && urlVault.id !== currentVault?.id) {
+        setCurrentVault(urlVault);
+        setSelectedChat(null); // Clear selected chat when switching vaults
+      }
+    }
+  }, [vaultIdFromUrl, userVaults]);
 
   useEffect(() => {
     if (currentVault) {
@@ -92,7 +102,18 @@ const ChatInterface = () => {
       const data = await response.json();
       if (response.ok) {
         setUserVaults(data.vaults || []);
-        if (data.vaults && data.vaults.length > 0) {
+        
+        // Handle URL vault parameter
+        if (vaultIdFromUrl) {
+          const urlVault = data.vaults.find(v => v.id === vaultIdFromUrl);
+          if (urlVault) {
+            setCurrentVault(urlVault);
+          } else if (data.vaults && data.vaults.length > 0) {
+            // Fallback to first vault if URL vault not found
+            setCurrentVault(data.vaults[0]);
+          }
+        } else if (data.vaults && data.vaults.length > 0) {
+          // No URL parameter, use first vault
           setCurrentVault(data.vaults[0]);
         }
       }
