@@ -3128,6 +3128,79 @@ app.get('/api/dm/typing/:conversation_id', async (req, res) => {
   }
 });
 
+// Delete DM message endpoint
+app.delete('/api/dm-messages/:messageId', async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Get DM message and check ownership
+    const { data: message, error: messageError } = await supabase
+      .from('dm_messages')
+      .select('*')
+      .eq('id', messageId)
+      .single();
+
+    if (messageError || !message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    // Check if user is the message author
+    if (message.user_id !== user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete your own messages'
+      });
+    }
+
+    // Delete the DM message
+    const { error: deleteError } = await supabase
+      .from('dm_messages')
+      .delete()
+      .eq('id', messageId);
+
+    if (deleteError) {
+      console.error('Delete DM message error:', deleteError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete message',
+        error: deleteError.message
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Message deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete DM message error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Handle chat typing indicators
 app.post('/api/chats/typing', async (req, res) => {
   try {
@@ -3319,6 +3392,79 @@ app.get('/api/chats/typing/:chat_id', async (req, res) => {
 
   } catch (error) {
     console.error('Get chat typing indicators error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Delete message endpoint
+app.delete('/api/messages/:messageId', async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Get message and check ownership
+    const { data: message, error: messageError } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('id', messageId)
+      .single();
+
+    if (messageError || !message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    // Check if user is the message author
+    if (message.user_id !== user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete your own messages'
+      });
+    }
+
+    // Delete the message
+    const { error: deleteError } = await supabase
+      .from('messages')
+      .delete()
+      .eq('id', messageId);
+
+    if (deleteError) {
+      console.error('Delete message error:', deleteError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to delete message',
+        error: deleteError.message
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Message deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete message error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

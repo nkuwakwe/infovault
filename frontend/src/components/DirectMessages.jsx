@@ -34,6 +34,7 @@ const DirectMessages = () => {
   const [typingUsers, setTypingUsers] = useState(new Set()); // Store typing user IDs
   const [typingTimeout, setTypingTimeout] = useState(null);
   const [typingPollInterval, setTypingPollInterval] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // message to delete
 
   // Typing indicator functions
   const handleTypingStart = () => {
@@ -578,6 +579,42 @@ const DirectMessages = () => {
   const cancelEdit = () => {
     setEditingMessage(null);
     setEditInput('');
+  };
+
+  const handleDelete = (message) => {
+    setDeleteConfirm(message);
+    setShowReplyMenu(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm-messages/${deleteConfirm.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        // Remove message from local state
+        setDmMessages(prev => prev.filter(msg => msg.id !== deleteConfirm.id));
+        setDeleteConfirm(null);
+      } else {
+        const data = await response.json();
+        console.error('Failed to delete message:', data.message);
+        alert('Failed to delete message: ' + (data.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Delete message error:', error);
+      alert('Failed to delete message');
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm(null);
   };
 
   const saveEdit = async () => {
@@ -1305,9 +1342,14 @@ const DirectMessages = () => {
                                 <i className="fas fa-smile"></i> React
                               </button>
                               {message.user_id === currentUser?.id && (
-                                <button onClick={() => handleEdit(message)} className="edit-btn">
-                                  <i className="fas fa-edit"></i> Edit
-                                </button>
+                                <>
+                                  <button onClick={() => handleEdit(message)} className="edit-btn">
+                                    <i className="fas fa-edit"></i> Edit
+                                  </button>
+                                  <button onClick={() => handleDelete(message)} className="delete-btn">
+                                    <i className="fas fa-trash"></i> Delete
+                                  </button>
+                                </>
                               )}
                             </div>
                           )}
@@ -1698,6 +1740,35 @@ const DirectMessages = () => {
             </div>
           </div>
         </>
+      )}
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="modal-overlay" onClick={cancelDelete}>
+          <div className="delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="delete-confirm-header">
+              <h3>Delete Message</h3>
+              <button className="close-btn" onClick={cancelDelete}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="delete-confirm-body">
+              <p>Are you sure you want to delete this message?</p>
+              <div className="delete-confirm-message">
+                {deleteConfirm.content}
+              </div>
+            </div>
+            <div className="delete-confirm-footer">
+              <button className="cancel-btn" onClick={cancelDelete}>
+                Cancel
+              </button>
+              <button className="delete-btn" onClick={confirmDelete}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

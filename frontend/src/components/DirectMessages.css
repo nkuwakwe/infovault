@@ -2105,3 +2105,120 @@ body {
 .back-link:hover {
   opacity: 1;
 }
+
+/* Delete Confirmation Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.delete-confirm-modal {
+  background: #1a1208;
+  border: 1px solid #dbb056;
+  border-radius: 8px;
+  padding: 20px;
+  min-width: 400px;
+  max-width: 500px;
+}
+
+.delete-confirm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(219, 176, 86, 0.3);
+  padding-bottom: 15px;
+}
+
+.delete-confirm-header h3 {
+  color: #dbb056;
+  margin: 0;
+  font-size: 18px;
+}
+
+.delete-confirm-header .close-btn {
+  background: none;
+  border: none;
+  color: #ffffff60;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 5px;
+}
+
+.delete-confirm-header .close-btn:hover {
+  color: #ffffff;
+}
+
+.delete-confirm-body {
+  margin-bottom: 20px;
+}
+
+.delete-confirm-body p {
+  color: #ffffff;
+  margin: 0 0 15px 0;
+  font-size: 14px;
+}
+
+.delete-confirm-message {
+  background: rgba(219, 176, 86, 0.1);
+  border: 1px solid rgba(219, 176, 86, 0.3);
+  border-radius: 4px;
+  padding: 10px;
+  color: #ffffff80;
+  font-size: 13px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.delete-confirm-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.delete-confirm-footer .cancel-btn {
+  background: #33261c;
+  border: 1px solid #ffffff20;
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.delete-confirm-footer .cancel-btn:hover {
+  background: #4a3a2a;
+}
+
+.delete-confirm-footer .delete-btn {
+  background: #dc3545;
+  border: 1px solid #dc3545;
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.delete-confirm-footer .delete-btn:hover {
+  background: #c82333;
+}
+
+/* Context menu delete button */
+.reply-menu .delete-btn {
+  background: #dc3545;
+  border: 1px solid #dc3545;
+  color: #ffffff;
+}
+
+.reply-menu .delete-btn:hover {
+  background: #c82333;
+}
