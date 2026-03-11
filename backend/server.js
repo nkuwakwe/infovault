@@ -7,6 +7,9 @@ const supabase = require('./config/supabase');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// In-memory storage for typing indicators (in production, use Redis or database)
+const typingIndicators = new Map(); // conversation_id -> [{ user_id, username, display_name, timestamp }]
+
 app.use(cors());
 app.use(express.json());
 
@@ -3007,9 +3010,47 @@ app.post('/api/dm/typing', async (req, res) => {
       });
     }
 
-    // In a real implementation, you would use WebSocket or Server-Sent Events
-    // For now, we'll just return success
-    // The frontend would need to poll or use WebSocket to receive typing events
+    // Get user details for typing indicator
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, username, display_name')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get user details'
+      });
+    }
+
+    // Update typing indicators storage
+    if (!typingIndicators.has(conversation_id)) {
+      typingIndicators.set(conversation_id, []);
+    }
+
+    const conversationTyping = typingIndicators.get(conversation_id);
+    
+    if (is_typing) {
+      // Add or update user's typing status
+      const existingIndex = conversationTyping.findIndex(t => t.user_id === user.id);
+      const typingInfo = {
+        user_id: user.id,
+        username: userData.username,
+        display_name: userData.display_name,
+        timestamp: Date.now()
+      };
+      
+      if (existingIndex >= 0) {
+        conversationTyping[existingIndex] = typingInfo;
+      } else {
+        conversationTyping.push(typingInfo);
+      }
+    } else {
+      // Remove user's typing status
+      const filteredTyping = conversationTyping.filter(t => t.user_id !== user.id);
+      typingIndicators.set(conversation_id, filteredTyping);
+    }
     
     res.json({
       success: true,
@@ -3018,6 +3059,67 @@ app.post('/api/dm/typing', async (req, res) => {
 
   } catch (error) {
     console.error('Typing event error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get typing indicators for a conversation
+app.get('/api/dm/typing/:conversation_id', async (req, res) => {
+  try {
+    const { conversation_id } = req.params;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid authentication token'
+      });
+    }
+
+    // Check if user is participant in conversation
+    const { data: participant, error: participantError } = await supabase
+      .from('dm_participants')
+      .select('*')
+      .eq('conversation_id', conversation_id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (participantError || !participant) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this conversation'
+      });
+    }
+
+    // Get typing indicators for this conversation
+    const conversationTyping = typingIndicators.get(conversation_id) || [];
+    
+    // Filter out typing indicators older than 5 seconds (cleanup)
+    const now = Date.now();
+    const recentTyping = conversationTyping.filter(t => now - t.timestamp < 5000);
+    
+    // Update storage with cleaned data
+    typingIndicators.set(conversation_id, recentTyping);
+    
+    res.json({
+      success: true,
+      typing_users: recentTyping
+    });
+
+  } catch (error) {
+    console.error('Get typing indicators error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

@@ -33,6 +33,7 @@ const DirectMessages = () => {
   const [userVaults, setUserVaults] = useState([]);
   const [typingUsers, setTypingUsers] = useState(new Set()); // Store typing user IDs
   const [typingTimeout, setTypingTimeout] = useState(null);
+  const [typingPollInterval, setTypingPollInterval] = useState(null);
 
   // Typing indicator functions
   const handleTypingStart = () => {
@@ -57,7 +58,9 @@ const DirectMessages = () => {
   const sendTypingEvent = async (isTyping) => {
     try {
       const token = localStorage.getItem('access_token');
-      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm/typing`, {
+      console.log('Sending typing event:', { isTyping, conversationId: currentConversation?.id });
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm/typing`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -68,6 +71,9 @@ const DirectMessages = () => {
           is_typing: isTyping
         })
       });
+      
+      const result = await response.json();
+      console.log('Typing event response:', result);
     } catch (error) {
       console.error('Failed to send typing event:', error);
     }
@@ -80,6 +86,54 @@ const DirectMessages = () => {
     }
     sendTypingEvent(false);
   };
+
+  // Poll for typing indicators
+  const fetchTypingIndicators = async () => {
+    if (!currentConversation) return;
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/dm/typing/${currentConversation.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Filter out current user from typing users
+        const otherTypingUsers = data.typing_users.filter(user => user.id !== currentUser?.id);
+        setTypingUsers(new Set(otherTypingUsers));
+      }
+    } catch (error) {
+      console.error('Failed to fetch typing indicators:', error);
+    }
+  };
+
+  // Start/stop polling when conversation changes
+  useEffect(() => {
+    if (currentConversation) {
+      // Start polling every 2 seconds
+      const interval = setInterval(fetchTypingIndicators, 2000);
+      setTypingPollInterval(interval);
+      
+      // Initial fetch
+      fetchTypingIndicators();
+    } else {
+      // Stop polling
+      if (typingPollInterval) {
+        clearInterval(typingPollInterval);
+        setTypingPollInterval(null);
+      }
+      setTypingUsers(new Set());
+    }
+    
+    return () => {
+      if (typingPollInterval) {
+        clearInterval(typingPollInterval);
+      }
+    };
+  }, [currentConversation, currentUser]);
 
   useEffect(() => {
     fetchUserData();
@@ -1284,6 +1338,29 @@ const DirectMessages = () => {
                       : `${Array.from(typingUsers).length} people are typing...`
                     }
                   </span>
+                </div>
+              )}
+
+              {/* Debug Testing Button - Remove in production */}
+              {process.env.NODE_ENV === 'development' && (
+                <div style={{ padding: '10px', background: 'rgba(255,0,0,0.1)', margin: '10px 0' }}>
+                  <button 
+                    onClick={() => {
+                      // Simulate typing indicator
+                      setTypingUsers(new Set([{ display_name: 'Test User', username: 'testuser' }]));
+                      setTimeout(() => setTypingUsers(new Set()), 3000);
+                    }}
+                    style={{ 
+                      padding: '5px 10px', 
+                      background: '#dbb056', 
+                      color: '#000', 
+                      border: 'none', 
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Test Typing Indicator
+                  </button>
                 </div>
               )}
 
