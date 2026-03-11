@@ -1126,7 +1126,11 @@ const ChatInterface = () => {
                 {role.members.map((member) => (
                   <div key={member.id} className="member">
                     <div className="status-dot"></div>
-                    <div className="member-avatar">
+                    <div 
+                      className="member-avatar"
+                      onClick={() => setProfileModal({ isOpen: true, user: member })}
+                      style={{ cursor: 'pointer' }}
+                    >
                       {member.pfp ? (
                         <img 
                           src={member.pfp} 
