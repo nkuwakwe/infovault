@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import './ChatInterface.css';
 
 const ChatInterface = () => {
-  const { vault: vaultIdFromUrl } = useParams();
   const [vaults, setVaults] = useState([]);
   const [userVaults, setUserVaults] = useState([]);
   const [currentVault, setCurrentVault] = useState(null);
@@ -30,21 +29,24 @@ const ChatInterface = () => {
   const [typingUsers, setTypingUsers] = useState(new Set()); // Store typing user IDs
   const [typingTimeout, setTypingTimeout] = useState(null);
   const [typingPollInterval, setTypingPollInterval] = useState(null);
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   useEffect(() => {
+    fetchUserData();
     fetchUserVaults();
   }, []);
 
+  // Handle vault selection from URL parameter
   useEffect(() => {
-    if (vaultIdFromUrl && userVaults.length > 0) {
-      const urlVault = userVaults.find(v => v.id === vaultIdFromUrl);
-      if (urlVault && urlVault.id !== currentVault?.id) {
-        setCurrentVault(urlVault);
-        setSelectedChat(null); // Clear selected chat when switching vaults
+    const vaultId = searchParams.get('vault');
+    if (vaultId && userVaults.length > 0) {
+      const vault = userVaults.find(v => v.id === vaultId);
+      if (vault && vault.id !== currentVault?.id) {
+        switchVault(vault);
       }
     }
-  }, [vaultIdFromUrl, userVaults]);
+  }, [searchParams, userVaults]);
 
   useEffect(() => {
     if (currentVault) {
@@ -102,18 +104,7 @@ const ChatInterface = () => {
       const data = await response.json();
       if (response.ok) {
         setUserVaults(data.vaults || []);
-        
-        // Handle URL vault parameter
-        if (vaultIdFromUrl) {
-          const urlVault = data.vaults.find(v => v.id === vaultIdFromUrl);
-          if (urlVault) {
-            setCurrentVault(urlVault);
-          } else if (data.vaults && data.vaults.length > 0) {
-            // Fallback to first vault if URL vault not found
-            setCurrentVault(data.vaults[0]);
-          }
-        } else if (data.vaults && data.vaults.length > 0) {
-          // No URL parameter, use first vault
+        if (data.vaults && data.vaults.length > 0) {
           setCurrentVault(data.vaults[0]);
         }
       }
