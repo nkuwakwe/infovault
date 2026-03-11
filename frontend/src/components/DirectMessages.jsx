@@ -35,6 +35,7 @@ const DirectMessages = () => {
   const [typingTimeout, setTypingTimeout] = useState(null);
   const [typingPollInterval, setTypingPollInterval] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null); // message to delete
+  const [linkPreviews, setLinkPreviews] = useState(new Map()); // message_id -> preview data
 
   // Typing indicator functions
   const handleTypingStart = () => {
@@ -615,6 +616,129 @@ const DirectMessages = () => {
 
   const cancelDelete = () => {
     setDeleteConfirm(null);
+  };
+
+  // Link detection and preview functions
+  const extractUrls = (text) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.match(urlRegex) || [];
+  };
+
+  const fetchLinkPreview = async (url, messageId) => {
+    // Skip if we already have a preview for this message
+    if (linkPreviews.has(messageId)) {
+      return;
+    }
+
+    try {
+      // Use a CORS proxy for link previews (you can replace with your own proxy)
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+      const response = await fetch(proxyUrl);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const htmlContent = data.contents;
+        
+        // Extract basic metadata from HTML
+        const titleMatch = htmlContent.match(/<title>(.*?)<\/title>/i);
+        const descriptionMatch = htmlContent.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+        const ogImageMatch = htmlContent.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+        const ogTitleMatch = htmlContent.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+        const ogDescriptionMatch = htmlContent.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+        
+        // Extract domain from URL
+        const domain = new URL(url).hostname.replace('www.', '');
+        
+        const preview = {
+          url,
+          title: ogTitleMatch ? ogTitleMatch[1] : (titleMatch ? titleMatch[1] : url),
+          description: ogDescriptionMatch ? ogDescriptionMatch[1] : (descriptionMatch ? descriptionMatch[1] : ''),
+          image: ogImageMatch ? ogImageMatch[1] : null,
+          domain,
+          loading: false,
+          error: false
+        };
+        
+        setLinkPreviews(prev => new Map(prev.set(messageId, preview)));
+      }
+    } catch (error) {
+      console.error('Failed to fetch link preview:', error);
+      // Store error state
+      setLinkPreviews(prev => new Map(prev.set(messageId, {
+        url,
+        loading: false,
+        error: true,
+        domain: new URL(url).hostname.replace('www.', '')
+      })));
+    }
+  };
+
+  const renderMessageWithLinks = (content, messageId) => {
+    const urls = extractUrls(content);
+    let processedContent = content;
+    
+    // Replace URLs with clickable links
+    urls.forEach(url => {
+      const linkHtml = `<a href="${url}" target="_blank" rel="noopener noreferrer" class="message-link">${url}</a>`;
+      processedContent = processedContent.replace(url, linkHtml);
+    });
+    
+    // Fetch preview for the first URL found
+    if (urls.length > 0 && !linkPreviews.has(messageId)) {
+      fetchLinkPreview(urls[0], messageId);
+    }
+    
+    return (
+      <div>
+        <div 
+          dangerouslySetInnerHTML={{ __html: processedContent }}
+          className="message-content"
+        />
+        {/* Show preview for the first URL */}
+        {urls.length > 0 && linkPreviews.get(messageId) && (
+          <LinkPreview preview={linkPreviews.get(messageId)} />
+        )}
+      </div>
+    );
+  };
+
+  const LinkPreview = ({ preview }) => {
+    if (preview.error) {
+      return (
+        <div className="link-preview link-preview-error">
+          <i className="fas fa-link"></i>
+          <a href={preview.url} target="_blank" rel="noopener noreferrer" className="preview-link">
+            {preview.url}
+          </a>
+        </div>
+      );
+    }
+
+    return (
+      <div className="link-preview" onClick={() => window.open(preview.url, '_blank')}>
+        {preview.image && (
+          <div className="preview-image">
+            <img 
+              src={preview.image} 
+              alt={preview.title}
+              onError={(e) => {
+                e.target.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+        <div className="preview-content">
+          <div className="preview-title">{preview.title}</div>
+          {preview.description && (
+            <div className="preview-description">{preview.description}</div>
+          )}
+          <div className="preview-url">{preview.url}</div>
+          {preview.domain && (
+            <div className="preview-domain">{preview.domain}</div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const saveEdit = async () => {
@@ -1255,7 +1379,7 @@ const DirectMessages = () => {
                               </div>
                             )}
                             <div className="dm-msg-text">
-                            {message.content && <div>{message.content}</div>}
+                            {message.content && renderMessageWithLinks(message.content, message.id)}
                             {message.attachments && message.attachments.length > 0 && (
                               <div className="message-attachments">
                                 {message.attachments.map((attachment, index) => (
