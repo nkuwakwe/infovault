@@ -1865,7 +1865,6 @@ const DirectMessages = () => {
           </div>
         </>
       )}
-      )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
