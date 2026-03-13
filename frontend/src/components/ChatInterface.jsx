@@ -328,7 +328,22 @@ const ChatInterface = () => {
   }, [selectedChat, currentUser]);
 
   const sendMessage = async () => {
-    if (!messageInput.trim() || !selectedChat) return;
+    if (!selectedChat) return;
+    
+    // If file is selected, handle file sending logic
+    if (selectedFile) {
+      if (messageInput.trim()) {
+        // Send message with attachment
+        sendMessageWithFile();
+      } else {
+        // Send file alone
+        sendFileAlone();
+      }
+      return;
+    }
+    
+    // Regular message send (no file)
+    if (!messageInput.trim()) return;
     
     try {
       const token = localStorage.getItem('access_token');
