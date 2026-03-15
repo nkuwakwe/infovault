@@ -950,13 +950,6 @@ const ChatInterface = () => {
 
   return (
     <div className="chat-container">
-      {/* Top Bar */}
-      <div className="top-bar">
-        <div className="server-name">
-          {currentVault ? `Infovault – ${currentVault.name}` : 'Infovault'}
-        </div>
-      </div>
-
       <div className="main-layout">
         {/* Server Icons Column */}
         <div className="servers-column">
@@ -995,11 +988,21 @@ const ChatInterface = () => {
               </div>
               
               {/* Vault Banner */}
-              <div className="vault-banner">
-                <div className="banner-label">Module Active</div>
-                <div className="banner-title">{currentVault.name}</div>
-                <div className="banner-sub">{members.length} active members now</div>
-              </div>
+              {currentVault.banner ? (
+                <div className="vault-banner-image">
+                  <img 
+                    src={currentVault.banner} 
+                    alt={`${currentVault.name} banner`}
+                    className="vault-banner-img"
+                  />
+                </div>
+              ) : (
+                <div className="vault-banner">
+                  <div className="banner-label">Module Active</div>
+                  <div className="banner-title">{currentVault.name}</div>
+                  <div className="banner-sub">{members.length} active members now</div>
+                </div>
+              )}
               
               {chats.map((category) => (
                 <div key={category.id}>
@@ -1200,6 +1203,7 @@ const ChatInterface = () => {
           )}
 
           <div className="input-area">
+            <div className="input-box">
             {/* Reply indicator */}
             {replyingTo && (
               <div className="reply-indicator">
@@ -1212,65 +1216,97 @@ const ChatInterface = () => {
               </div>
             )}
             
-            <div className="input-box">
-              {/* Input prefix for attachments */}
-              <div className="input-prefix">
-                <input 
-                  type="file" 
-                  id="file-upload" 
-                  style={{ display: 'none' }}
-                  onChange={handleFileSelect}
-                  accept="image/*,.pdf,.doc,.docx,.txt"
-                />
-                <label htmlFor="file-upload" className="input-btn">
-                  <i className="fas fa-plus"></i>
-                </label>
+            {/* Edit indicator */}
+            {editingMessage && (
+              <div className="edit-indicator">
+                <div className="edit-info">
+                  <span className="editing-text">Editing message</span>
+                  <button className="cancel-edit-btn" onClick={cancelEdit}>
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
               </div>
-              
-              {/* Main input field */}
+            )}
+            
+            {/* File upload preview */}
+            {showFileUpload && (
+              <div className="file-upload-preview">
+                <div className="file-preview-content">
+                  {selectedFile?.type.startsWith('image/') ? (
+                    <img src={filePreview} alt="Preview" className="preview-image" />
+                  ) : (
+                    <div className="preview-file">
+                      <i className="fas fa-file"></i>
+                      <span className="file-name">{selectedFile.name}</span>
+                    </div>
+                  )}
+                  <button className="remove-file-btn" onClick={removeFile}>
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
+            
+              </div>
+            )}
+            
+            {/* Input prefix for attachments */}
+            <div className="input-prefix">
               <input 
-                type="text" 
-                className="input-field"
-                placeholder={editingMessage ? "Edit message..." : (selectedChat ? `Message #${selectedChat.name}` : "Select a channel...")}
-                disabled={!selectedChat}
-                value={editingMessage ? editInput : messageInput}
-                onChange={(e) => {
-                      if (editingMessage) {
-                        setEditInput(e.target.value);
-                      } else {
-                        setMessageInput(e.target.value);
-                        handleTypingStart();
-                      }
-                    }}
-                onKeyPress={editingMessage ? (e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        saveEdit();
-                      }
-                    } : (e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        sendMessage();
-                        handleTypingStop();
-                      }
-                    }}
-                onBlur={() => {
-                      if (!editingMessage) {
-                        handleTypingStop();
-                      }
-                  }}
+                type="file" 
+                id="file-upload" 
+                style={{ display: 'none' }}
+                onChange={handleFileSelect}
+                accept="image/*,.pdf,.doc,.docx,.txt"
               />
-              
-              {/* Input suffix for send button */}
-              <div className="input-suffix">
-                <button className="input-btn" onClick={() => setShowEmojiPicker(!showEmojiPicker)}>
-                  <i className="fas fa-smile"></i>
-                </button>
-                <button className="send-btn" onClick={editingMessage ? saveEdit : sendMessage}>
-                  <i className="fas fa-paper-plane"></i>
-                </button>
-              </div>
+              <label htmlFor="file-upload" className="input-btn">
+                <i className="fas fa-plus"></i>
+              </label>
             </div>
+            
+            {/* Main input field */}
+            <input 
+              type="text" 
+              className="input-field"
+              id="inputField"
+              placeholder={editingMessage ? "Edit message..." : (selectedChat ? `Message #${selectedChat.name}` : "Select a channel...")}
+              disabled={!selectedChat}
+              value={editingMessage ? editInput : messageInput}
+              onChange={(e) => {
+                    if (editingMessage) {
+                      setEditInput(e.target.value);
+                    } else {
+                      setMessageInput(e.target.value);
+                      handleTypingStart();
+                    }
+                  }}
+              onKeyPress={editingMessage ? (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      saveEdit();
+                    }
+                  } : (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                      handleTypingStop();
+                    }
+                  }}
+              onBlur={() => {
+                    if (!editingMessage) {
+                      handleTypingStop();
+                    }
+                }}
+            />
+            
+            {/* Input suffix for send button */}
+            <div className="input-suffix">
+              <button className="input-btn" onClick={() => setShowEmojiPicker(!showEmojiPicker)}>
+                <i className="fas fa-smile"></i>
+              </button>
+              <button className="send-btn" onClick={editingMessage ? saveEdit : sendMessage}>
+                <i className="fas fa-paper-plane"></i>
+              </button>
+            </div>
+          </div>
           </div>
         </div>
 
