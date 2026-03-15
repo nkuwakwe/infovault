@@ -608,37 +608,48 @@ const ChatInterface = () => {
   const LinkPreview = ({ preview }) => {
     if (preview.error) {
       return (
-        <div className="link-preview link-preview-error">
-          <i className="fas fa-link"></i>
-          <a href={preview.url} target="_blank" rel="noopener noreferrer" className="preview-link">
+        <div className="chat-line">
+          <a className="source-url" href={preview.url} target="_blank" rel="noopener noreferrer">
             {preview.url}
           </a>
+          <div className="preview-card">
+            <div className="preview-text">
+              <div className="preview-site">Link Preview Error</div>
+              <div className="preview-title">Unable to load preview</div>
+              <div className="preview-description">
+                Could not fetch link preview. Click to visit the page directly.
+              </div>
+            </div>
+          </div>
         </div>
       );
     }
 
     return (
-      <div className="link-preview" onClick={() => window.open(preview.url, '_blank')}>
-        {preview.image && (
-          <div className="preview-image">
-            <img 
-              src={preview.image} 
-              alt={preview.title}
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
-            />
+      <div className="chat-line">
+        <a className="source-url" href={preview.url} target="_blank" rel="noopener noreferrer">
+          {preview.url}
+        </a>
+        <div className="preview-card">
+          <div className="preview-text">
+            <div className="preview-site">{preview.domain}</div>
+            <div className="preview-title">{preview.title}</div>
+            {preview.description && (
+              <div className="preview-description">{preview.description}</div>
+            )}
           </div>
-        )}
-        <div className="preview-content">
-          <div className="preview-title">{preview.title}</div>
-          {preview.description && (
-            <div className="preview-description">{preview.description}</div>
-          )}
-          <div className="preview-url">{preview.url}</div>
-          {preview.domain && (
-            <div className="preview-domain">{preview.domain}</div>
-          )}
+          <div className="preview-banner">
+            {preview.image && (
+              <img 
+                src={preview.image} 
+                alt={preview.title}
+                className="banner-preview-image"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            )}
+          </div>
         </div>
       </div>
     );
