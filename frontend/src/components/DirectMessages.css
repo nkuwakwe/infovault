@@ -716,6 +716,7 @@ body {
   font-size: 18px;
   font-weight: 600;
   color: #ffffff;
+  font-family: 'Poppins-Medium', 'Poppins', sans-serif;
 }
 
 .dm-status {
@@ -985,12 +986,14 @@ body {
   font-size: 14px;
   font-weight: 600;
   color: #dbb056;
+  font-family: 'Poppins-Medium', 'Poppins', sans-serif;
   margin-bottom: 4px;
 }
 
 .dm-msg-text {
   color: #ffffff;
   line-height: 1.4;
+  font-family: 'Poppins-Medium', 'Poppins', sans-serif;
 }
 
 .dm-msg-timestamp {
@@ -1110,6 +1113,7 @@ body {
 .friend-username {
   color: #ffffff60;
   font-size: 12px;
+  font-family: 'Poppins-Medium', 'Poppins', sans-serif;
 }
 
 .friend-actions {
@@ -1212,6 +1216,7 @@ body {
 .request-username {
   color: #ffffff60;
   font-size: 12px;
+  font-family: 'Poppins-Medium', 'Poppins', sans-serif;
 }
 
 .request-actions {
@@ -1794,6 +1799,7 @@ body {
   font-size: 15px;
   color: #dbb056;
   font-weight: 500;
+  font-family: 'Poppins-Medium', 'Poppins', sans-serif;
 }
 
 
@@ -2239,6 +2245,7 @@ body {
 /* Link Previews */
 .message-content {
   word-wrap: break-word;
+  font-family: 'Poppins-Medium', 'Poppins', sans-serif;
 }
 
 .message-content .message-link {
