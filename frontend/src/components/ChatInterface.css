@@ -231,9 +231,9 @@ body {
 }
 
 .server-title {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 16px;
-  font-weight: 600;
+  font-family: 'Poppins', serif;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--text-primary);
   letter-spacing: 0.5px;
   line-height: 1;
@@ -486,6 +486,7 @@ body {
   color: var(--text-muted);
   letter-spacing: 0.5px;
   font-weight: 300;
+  padding-left: 4px;
 }
 
 .text { 
@@ -667,8 +668,9 @@ body {
     border: none !important;
     outline: none;
     color: var(--text-primary);
-    font-family: 'Inter', sans-serif;
-    font-size: 14px;
+    font-family: 'Poppins-Medium', 'Poppins', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 300 !important;
     line-height: 1.5;
     resize: none;
     max-height: 120px;
@@ -716,34 +718,100 @@ body {
   scrollbar-color: var(--border) transparent; 
 }
 
-/* Reply Styles */
-.reply-preview {
-  margin-left: 52px;
-  margin-bottom: 4px;
-  padding: 8px;
-  background: rgba(219,176,86,0.1);
-  border-left: 3px solid #dbb056;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.reply-info {
+/* Reply Styles - Match the provided HTML design */
+.reply-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 0 0 2px 56px;
+  position: relative;
 }
 
-.reply-avatar {
+/* The curved connector line - pointing down to the message below */
+.reply-row::before {
+  content: "";
+  position: absolute;
+  left: 28px;
+  top: 50%;
   width: 20px;
-  height: 20px;
+  height: 12px;
+  border-left: 2px solid rgba(219,176,86,0.3);
+  border-top: 2px solid rgba(219,176,86,0.3);
+  border-top-left-radius: 6px;
+  transform: translateY(-50%);
+}
+
+/* Message group container */
+.message-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Original message being replied to */
+.replied-to-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(219,176,86,0.05);
+  opacity: 0.7;
+}
+
+.replied-to-message .avatar {
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1.5px solid rgba(219,176,86,0.3);
   background: #1a1208;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #dbb056;
-  font-size: 10px;
+}
+
+.replied-to-message .msg-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.replied-to-message .msg-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.replied-to-message .msg-username {
+  font-size: 14.5px;
   font-weight: 600;
+  color: #ffffff;
+}
+
+.replied-to-message .msg-time {
+  font-size: 11px;
+  color: #ffffff50;
+}
+
+.replied-to-message .msg-text {
+  font-size: 14.5px;
+  color: #dcccaa;
+  line-height: 1.5;
+}
+
+.reply-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d4af37, #e6c24f);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: #1a1208;
   flex-shrink: 0;
 }
 
@@ -754,23 +822,20 @@ body {
   object-fit: cover;
 }
 
-.reply-details {
-  flex: 1;
-  min-width: 0;
-}
-
 .reply-username {
+  font-size: 12px;
+  font-weight: 600;
   color: #dbb056;
-  font-weight: 500;
-  margin-bottom: 2px;
+  white-space: nowrap;
 }
 
-.reply-content {
+.reply-text {
+  font-size: 12px;
   color: #ffffff80;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-family: 'Poppins-Medium', 'Poppins', sans-serif;
+  max-width: 340px;
 }
 
 .reply-menu {

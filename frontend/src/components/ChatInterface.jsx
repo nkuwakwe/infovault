@@ -54,6 +54,10 @@ const ChatInterface = () => {
     if (currentVault) {
       fetchVaultChats();
       fetchVaultMembers();
+      // Add a retry mechanism for members in case of race condition
+      setTimeout(() => {
+        fetchVaultMembers();
+      }, 1000);
     }
   }, [currentVault]);
 
@@ -158,8 +162,11 @@ const ChatInterface = () => {
       });
       
       const data = await response.json();
+      console.log('Vault members response:', data);
       if (response.ok) {
         setMembers(data.roles || []);
+      } else {
+        console.error('Failed to fetch vault members:', data.message);
       }
     } catch (error) {
       console.error('Failed to fetch vault members:', error);
@@ -1043,82 +1050,107 @@ const ChatInterface = () => {
         <div className="chat-area">
           <div className="chat-messages">
             {messages.map((message) => (
-              <div key={message.id} className="message" data-message-id={message.id} onContextMenu={(e) => handleContextMenu(e, message.id)}>
-                {/* Reply preview */}
+              <div key={message.id} className="message-group" data-message-id={message.id} onContextMenu={(e) => handleContextMenu(e, message.id)}>
+                {/* Show the message being replied to first */}
                 {message.reply_to_id && message.reply_to && (
-                  <div className="reply-preview">
-                    <div className="reply-info">
-                      <div className="reply-avatar">
-                        {message.reply_to.users?.pfp ? (
-                          <img 
-                            src={message.reply_to.users.pfp} 
-                            alt={message.reply_to.users.display_name || message.reply_to.users.username} 
-                            className="reply-avatar-img"
-                          />
-                        ) : (
-                          getUserInitials(message.reply_to.users)
-                        )}
+                  <div className="replied-to-message">
+                    <div className="avatar">
+                      {message.reply_to.users?.pfp ? (
+                        <img 
+                          src={message.reply_to.users.pfp} 
+                          alt={message.reply_to.users.display_name || message.reply_to.users.username} 
+                          className="user-avatar-img"
+                        />
+                      ) : (
+                        getUserInitials(message.reply_to.users)
+                      )}
+                    </div>
+                    <div className="msg-content">
+                      <div className="msg-header">
+                        <span className="msg-username">
+                          {message.reply_to.users?.display_name || message.reply_to.users.username}
+                        </span>
+                        <span className="msg-time">
+                          {new Date(message.reply_to.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
-                      <div className="reply-details">
-                        <div className="reply-username">
-                          Replying to {message.reply_to.users?.display_name || message.reply_to.users?.username}
-                        </div>
-                        <div className="reply-content">{message.reply_to.content}</div>
-                      </div>
+                      <div className="msg-text">{message.reply_to.content}</div>
                     </div>
                   </div>
                 )}
                 
-                <div className="avatar" onClick={() => openProfileModal(message.users)} style={{ cursor: 'pointer' }}>
-                  {message.users?.pfp ? (
-                    <img 
-                      src={message.users.pfp} 
-                      alt={message.users.display_name || message.users.username} 
-                      className="user-avatar-img"
-                    />
-                  ) : (
-                    getUserInitials({ display_name: message.users?.display_name, username: message.users?.username })
-                  )}
-                </div>
-                <div className="msg-content">
-                  <span 
-                    className="username" 
-                    style={{ color: message.user_role?.color || '#dbb056' }}
-                  >
-                    {message.users?.display_name || message.users?.username}
-                  </span>
-                  <span className="timestamp">
-                    {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                  {message.is_edited && (
-                    <span className="edited-indicator">(Edited)</span>
-                  )}
-                  <div className="text">
-                    {message.content && renderMessageWithLinks(message.content, message.id)}
-                    {message.attachments && message.attachments.length > 0 && (
-                      <div className="message-attachments">
-                        {message.attachments.map((attachment, index) => (
-                          <div key={index} className="attachment">
-                            {attachment.type === 'image' ? (
-                              <img 
-                                src={attachment.url} 
-                                alt={attachment.name} 
-                                className="attachment-image"
-                                onClick={() => window.open(attachment.url, '_blank')}
-                              />
-                            ) : (
-                              <div className="file-attachment" onClick={() => window.open(attachment.url, '_blank')}>
-                                <i className="fas fa-file"></i>
-                                <span className="attachment-name">{attachment.name}</span>
-                                <span className="attachment-size">
-                                  {(attachment.size / 1024).toFixed(1)}KB
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                {/* Reply bar with curved connector */}
+                {message.reply_to_id && message.reply_to && (
+                  <div className="reply-row">
+                    <div className="reply-avatar">
+                      {message.reply_to.users?.pfp ? (
+                        <img 
+                          src={message.reply_to.users.pfp} 
+                          alt={message.reply_to.users.display_name || message.reply_to.users.username} 
+                          className="reply-avatar-img"
+                        />
+                      ) : (
+                        getUserInitials(message.reply_to.users)
+                      )}
+                    </div>
+                    <span className="reply-username">{message.reply_to.users?.display_name || message.reply_to.users.username}</span>
+                    <span className="reply-text">{message.reply_to.content}</span>
+                  </div>
+                )}
+                
+                {/* Main message */}
+                <div className="message">
+                  <div className="avatar" onClick={() => openProfileModal(message.users)} style={{ cursor: 'pointer' }}>
+                    {message.users?.pfp ? (
+                      <img 
+                        src={message.users.pfp} 
+                        alt={message.users.display_name || message.users.username} 
+                        className="user-avatar-img"
+                      />
+                    ) : (
+                      getUserInitials({ display_name: message.users?.display_name, username: message.users?.username })
                     )}
+                  </div>
+                  <div className="msg-content">
+                    <span 
+                      className="username" 
+                      style={{ color: message.user_role?.color || '#dbb056' }}
+                    >
+                      {message.users?.display_name || message.users?.username}
+                    </span>
+                    <span className="timestamp">
+                      {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    {message.is_edited && (
+                      <span className="edited-indicator">(Edited)</span>
+                    )}
+                    <div className="text">
+                      {message.content && renderMessageWithLinks(message.content, message.id)}
+                      {message.attachments && message.attachments.length > 0 && (
+                        <div className="message-attachments">
+                          {message.attachments.map((attachment, index) => (
+                            <div key={index} className="attachment">
+                              {attachment.type === 'image' ? (
+                                <img 
+                                  src={attachment.url} 
+                                  alt={attachment.name} 
+                                  className="attachment-image"
+                                  onClick={() => window.open(attachment.url, '_blank')}
+                                />
+                              ) : (
+                                <div className="file-attachment" onClick={() => window.open(attachment.url, '_blank')}>
+                                  <i className="fas fa-file"></i>
+                                  <span className="attachment-name">{attachment.name}</span>
+                                  <span className="attachment-size">
+                                    {(attachment.size / 1024).toFixed(1)}KB
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
