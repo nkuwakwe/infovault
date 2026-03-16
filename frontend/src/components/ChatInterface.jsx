@@ -1024,11 +1024,23 @@ const ChatInterface = () => {
               {/* Vault Banner */}
               {currentVault.banner ? (
                 <div className="vault-banner-image">
-                  <img 
-                    src={currentVault.banner} 
-                    alt={`${currentVault.name} banner`}
-                    className="vault-banner-img"
-                  />
+                  {currentVault.banner.includes('.mp4') || currentVault.banner.includes('.webm') || currentVault.banner.includes('.mov') ? (
+                    <video 
+                      src={currentVault.banner} 
+                      alt={`${currentVault.name} banner`}
+                      className="vault-banner-video"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                    />
+                  ) : (
+                    <img 
+                      src={currentVault.banner} 
+                      alt={`${currentVault.name} banner`}
+                      className="vault-banner-img"
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="vault-banner">

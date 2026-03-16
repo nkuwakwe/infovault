@@ -2249,13 +2249,13 @@ body {
 }
 
 .message-content .message-link {
-  color: #4a9eff;
+  color: #dbb05699;
   text-decoration: underline;
   cursor: pointer;
 }
 
 .message-content .message-link:hover {
-  color: #6bb3ff;
+  color: #dbb056;
 }
 
 .link-preview {
