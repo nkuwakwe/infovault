@@ -24,6 +24,7 @@ const ChatInterface = () => {
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [showReactionMenu, setShowReactionMenu] = useState(null); // message id
   const [showEmojiPicker, setShowEmojiPicker] = useState(null); // message id
+  const [showInputEmojiPicker, setShowInputEmojiPicker] = useState(false); // input emoji picker
   const [showVaultBrowser, setShowVaultBrowser] = useState(false);
   const [availableVaults, setAvailableVaults] = useState([]);
   const [typingUsers, setTypingUsers] = useState(new Set()); // Store typing user IDs
@@ -69,10 +70,11 @@ const ChatInterface = () => {
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (!e.target.closest('.message') && !e.target.closest('.reply-menu') && !e.target.closest('.emoji-picker')) {
+      if (!e.target.closest('.message') && !e.target.closest('.reply-menu') && !e.target.closest('.emoji-picker') && !e.target.closest('.input-emoji-picker') && !e.target.closest('.input-btn')) {
         setShowReplyMenu(null);
         setShowReactionMenu(null);
         setShowEmojiPicker(null);
+        setShowInputEmojiPicker(false);
       }
     };
 
@@ -662,6 +664,20 @@ const ChatInterface = () => {
     );
   };
 
+  const handleInputEmojiSelect = (emoji) => {
+    console.log('handleInputEmojiSelect called with:', emoji);
+    setMessageInput(prev => {
+      const newInput = prev + emoji;
+      console.log('New input:', newInput);
+      return newInput;
+    });
+    setShowInputEmojiPicker(false);
+    // Focus back to input
+    setTimeout(() => {
+      document.querySelector('.input-field')?.focus();
+    }, 0);
+  };
+
   const handleReaction = (messageId, emoji) => {
     addReaction(messageId, emoji);
     setShowEmojiPicker(null);
@@ -1178,7 +1194,15 @@ const ChatInterface = () => {
                 
                 {/* Emoji Picker */}
                 {showEmojiPicker === message.id && (
-                  <div className="emoji-picker">
+                  <div 
+                    className="emoji-picker"
+                    style={{
+                      position: 'fixed',
+                      bottom: '100px',
+                      left: '50%',
+                      transform: 'translateX(-50%)'
+                    }}
+                  >
                     <div className="emoji-grid">
                       {['👍', '👎', '❤️', '😂', '😮', '😢', '😡', '🔥', '💰', '🎉', '👏', '🙏', '💯', '🤔', '👀', '🎯', '🚀', '💎', '⭐', '🌟'].map((emoji) => (
                         <button 
@@ -1342,7 +1366,9 @@ const ChatInterface = () => {
             
             {/* Input suffix for send button */}
             <div className="input-suffix">
-              <button className="input-btn" onClick={() => setShowEmojiPicker(!showEmojiPicker)}>
+              <button className="input-btn" onClick={() => {
+                setShowInputEmojiPicker(!showInputEmojiPicker);
+              }}>
                 <i className="fas fa-smile"></i>
               </button>
               <button className="send-btn" onClick={editingMessage ? saveEdit : sendMessage}>
@@ -1351,6 +1377,31 @@ const ChatInterface = () => {
             </div>
           </div>
           </div>
+          
+          {/* Input Emoji Picker */}
+          {showInputEmojiPicker && (
+            <div 
+              className="input-emoji-picker"
+              style={{
+                bottom: '120px',
+                right: '20px'
+              }}
+            >
+              <div className="emoji-grid">
+                {['💰', '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '👇', '☝️', '✋', '🤚', '🖐️', '🖖', '👋', '💪', '👏', '🙌', '👐', '🤲', '🙏', '🤝', '👊', '✊', '🤛', '🤜', '🤚'].map((emoji, index) => (
+                  <button 
+                    key={`${emoji}-${index}`}
+                    className="emoji-btn"
+                    onClick={() => {
+                      handleInputEmojiSelect(emoji);
+                    }}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Members Sidebar */}
